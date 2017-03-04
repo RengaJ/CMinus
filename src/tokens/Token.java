@@ -1,7 +1,12 @@
 package tokens;
 
 /**
- * Created by Justin on 02/25/2017.
+ * Class used to represent the abstract concept of a Token.
+ * The token is obtained from the Scanner as part of its
+ * standard operation.
+ *
+ * The Token object is abstract, as only the concrete
+ * implementations should be allowed to be instantiated.
  */
 public abstract class Token implements Comparable<Token>
 {
