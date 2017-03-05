@@ -10,7 +10,7 @@ import java.io.IOException;
 /**
  * The main class that drives the compiler execution
  */
-public class Main
+public final class Main
 {
   // Flag name constants (used for parsing through optional arguments)
   private static final String  NO_PARSE_FLAG       = "-NO_PARSE";

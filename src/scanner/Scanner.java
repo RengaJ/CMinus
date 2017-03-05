@@ -13,7 +13,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 
 /**
  * The C- Scanner. This Scanner will read in C- files
@@ -77,13 +79,13 @@ public final class Scanner
    * @param file The File object for which the Scanning will
    *             be performed.
    *
-   * @return An {@link ArrayList} of {@link Token} objects that
+   * @return An {@link Deque} of {@link Token} objects that
    * were found in the provided File object.
    *
    * @throws IOException Thrown if there are any file operation
    *                     issues (opening, reading or closing).
    */
-  public ArrayList<Token> scanForTokens(File file) throws IOException
+  public Deque<Token> scanForTokens(File file) throws IOException
   {
     if (file == null)
     {
@@ -94,7 +96,7 @@ public final class Scanner
 
     // Create the list that will contain the tokens generated
     // by the Scanner
-    ArrayList<Token> tokenList = new ArrayList<>();
+    Deque<Token> tokenList = new ArrayDeque<>();
 
     // Keep track of the current scanner state
     ScannerState scannerState = ScannerState.START_STATE;
@@ -408,7 +410,7 @@ public final class Scanner
    * to read in a new File object. This will reset the
    * file content buffer and the various counters and
    * indicators, as well as actually read in all of the
-   * File's contents into an {@link ArrayList} of
+   * File's contents into an {@link Deque} of
    * {@link String}s.
    *
    * @param file The File object whose contents will be

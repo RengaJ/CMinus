@@ -3,7 +3,8 @@ package parser;
 import syntaxtree.AbstractSyntaxTreeNode;
 import tokens.Token;
 
-import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 /**
  * The C- Parser. This Parser will read in a list of scanned
@@ -13,9 +14,13 @@ import java.util.ArrayList;
  */
 public final class Parser
 {
+  /**
+   * A private copy of the token list provided in the parse operation
+   */
+  private Deque<Token> tokenList;
+
   public Parser()
   {
-
   }
 
   /**
@@ -26,9 +31,11 @@ public final class Parser
    * @return The root of the Abstract Syntax Tree that is constructed
    *         during the parsing operation
    */
-  public AbstractSyntaxTreeNode parse(ArrayList<Token> tokenList)
+  public AbstractSyntaxTreeNode parse(Deque<Token> tokenList)
   {
     // TODO: Complete Implementation
+    this.tokenList = new ArrayDeque<>(tokenList);
+
     return null;
   }
 }
