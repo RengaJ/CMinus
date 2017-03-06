@@ -19,6 +19,14 @@ public final class Parser
    */
   private Deque<Token> tokenList;
 
+  /**
+   * The currently known identifier's type (when provided)
+   */
+  private Class<?> identifierType;
+
+  /**
+   * Full constructor for the Parser
+   */
   public Parser()
   {
   }

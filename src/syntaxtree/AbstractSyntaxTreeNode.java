@@ -1,5 +1,7 @@
 package syntaxtree;
 
+import tokens.TokenType;
+
 import java.util.ArrayList;
 
 /**
@@ -23,6 +25,13 @@ public abstract class AbstractSyntaxTreeNode
   private AbstractSyntaxTreeNode sibling;
 
   /**
+   * The contained attribute of the Abstract Syntax Tree Node. This
+   * is used to store additional meta-information without cluttering
+   * up the definition of the Abstract Syntax Tree Node object.
+   */
+  private SyntaxAttribute attribute;
+
+  /**
    * Full constructor for the Abstract Syntax Tree Node object
    */
   public AbstractSyntaxTreeNode()
@@ -30,6 +39,8 @@ public abstract class AbstractSyntaxTreeNode
     children = new ArrayList<>();
 
     sibling = null;
+
+    attribute = new SyntaxAttribute();
   }
 
   /**
@@ -102,5 +113,94 @@ public abstract class AbstractSyntaxTreeNode
   public int getChildCount()
   {
     return children.size();
+  }
+
+  /////////////////////////////////
+  // Attribute Related Accessors //
+  /////////////////////////////////
+
+  /**
+   * Set the value of the attribute's token type
+   *
+   * @param tokenType The new token type of the attribute
+   */
+  public void setAttributeTokenType(final TokenType tokenType)
+  {
+    attribute.setTokenType(tokenType);
+  }
+
+  /**
+   * Set the value of the attribute.
+   *
+   * @param value The new value of the attribute
+   */
+  public void setAttributeValue(final int value)
+  {
+    attribute.setValue(value);
+  }
+
+  /**
+   * Set the name of the attribute.
+   *
+   * @param name The new name of the attribute
+   */
+  public void setAttributeName(final String name)
+  {
+    attribute.setName(name);
+  }
+
+  /**
+   * Set the contained attribute's type to the provided {@link Class} object
+   *
+   * @param type The {@link Class} object used to be contained within the
+   *             attribute
+   */
+  public void setAttributeType(final Class<?> type)
+  {
+    attribute.setType(type);
+  }
+  /**
+   * Get the token type of the contained attribute
+   *
+   * @return The {@link TokenType} of the contained attribute
+   *         (default is TokenType.BOOKKEEPING_ERROR)
+   */
+  public TokenType getAttributeTokenType()
+  {
+    return attribute.getTokenType();
+  }
+
+  /**
+   * Get the value of the contained attribute
+   *
+   * @return The integer value of the contained attribute
+   *         (default is Integer.MIN_VALUE)
+   */
+  public int getAttributeValue()
+  {
+    return attribute.getValue();
+  }
+
+  /**
+   * Get the name of the contained attribute
+   *
+   * @return The string value of the contained attribute
+   *         (default is the empty string)
+   */
+  public String getAttributeName()
+  {
+    return attribute.getName();
+  }
+
+  /**
+   * Get the class type of the contained attribute
+   *
+   * @return The {@link Class} object that represents the
+   *         object type of the attribute (default is
+   *         the Void class)
+   */
+  public Class<?> getAttributeType()
+  {
+    return attribute.getType();
   }
 }
