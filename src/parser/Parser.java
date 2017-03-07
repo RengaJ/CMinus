@@ -63,7 +63,8 @@ public final class Parser
 
     currentToken = tokenList.pop();
 
-    while (currentToken.getType() != TokenType.BOOKKEEPING_END_OF_FILE)
+    while (statement == null &&
+           currentToken.getType() != TokenType.BOOKKEEPING_END_OF_FILE)
     {
       TokenType tokenType = currentToken.getType();
       switch (tokenType)
@@ -89,6 +90,11 @@ public final class Parser
           break;
         }
       }
+    }
+
+    if (statement != null && !match(currentToken.getType(), TokenType.BOOKKEEPING_END_OF_FILE))
+    {
+      statement.setSibling(createSyntaxTree());
     }
     return statement;
   }
@@ -178,6 +184,14 @@ public final class Parser
       logSyntaxError(currentToken, TokenType.SPECIAL_RIGHT_PAREN);
     }
     // Pop off the right parenthesis (hopefully)
+    currentToken = tokenList.pop();
+
+    // match the left brace ( { )
+    if (!match(currentToken.getType(), TokenType.SPECIAL_LEFT_BRACE))
+    {
+      logSyntaxError(currentToken, TokenType.SPECIAL_LEFT_BRACE);
+    }
+
     currentToken = tokenList.pop();
 
     // Function body

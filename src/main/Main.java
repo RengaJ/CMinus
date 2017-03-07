@@ -164,7 +164,7 @@ public final class Main
       // TODO: REMOVE
       // Create a custom Deque for testing purposes
       // that corresponds to the following C- code (not syntactically correct):
-      // int gcd ( void )
+      // int gcd ( int u, int v ) { } void main ( void ) { } \0
       ArrayDeque<Token> testDeque = new ArrayDeque<>();
       testDeque.add(new IntToken());
 
@@ -188,6 +188,21 @@ public final class Main
       testDeque.add(v);
 
       testDeque.add(new RightParenthesisToken());
+      testDeque.add(new LeftBraceToken());
+      testDeque.add(new RightBraceToken());
+
+      testDeque.add(new VoidToken());
+
+      IdentifierToken mainToken = new IdentifierToken();
+      mainToken.setLexeme("main");
+      testDeque.add(mainToken);
+      testDeque.add(new LeftParenthesisToken());
+
+      testDeque.add(new VoidToken());
+
+      testDeque.add(new RightParenthesisToken());
+      testDeque.add(new LeftBraceToken());
+      testDeque.add(new RightBraceToken());
       testDeque.add(new EndOfFileToken());
 
       Parser parser = new Parser();
