@@ -1,11 +1,20 @@
 package main;
 
 import globals.CompilerFlags;
+import parser.Parser;
 import scanner.Scanner;
+import syntaxtree.AbstractSyntaxTreeNode;
+import tokens.Token;
+import tokens.bookkeeping.EndOfFileToken;
+import tokens.reserved.IntToken;
+import tokens.reserved.VoidToken;
+import tokens.special.*;
+import tokens.variable.IdentifierToken;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayDeque;
 
 /**
  * The main class that drives the compiler execution
@@ -151,6 +160,41 @@ public final class Main
       Scanner scanner = new Scanner();
 
       scanner.scanForTokens(sourceFile);
+
+      // TODO: REMOVE
+      // Create a custom Deque for testing purposes
+      // that corresponds to the following C- code (not syntactically correct):
+      // int gcd ( void )
+      ArrayDeque<Token> testDeque = new ArrayDeque<>();
+      testDeque.add(new IntToken());
+
+      IdentifierToken id = new IdentifierToken();
+      id.setLexeme("gcd");
+      testDeque.add(id);
+      testDeque.add(new LeftParenthesisToken());
+
+      IdentifierToken u = new IdentifierToken();
+      u.setLexeme("u");
+
+      testDeque.add(new IntToken());
+      testDeque.add(u);
+
+      testDeque.add(new CommaToken());
+
+      IdentifierToken v = new IdentifierToken();
+      v.setLexeme("v");
+
+      testDeque.add(new IntToken());
+      testDeque.add(v);
+
+      testDeque.add(new RightParenthesisToken());
+      testDeque.add(new EndOfFileToken());
+
+      Parser parser = new Parser();
+
+      AbstractSyntaxTreeNode ast = parser.parse(testDeque);
+
+      System.out.println("Compilation Completed.");
     }
     catch (IOException ioe)
     {

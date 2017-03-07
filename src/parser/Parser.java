@@ -2,6 +2,8 @@ package parser;
 
 import syntaxtree.AbstractSyntaxTreeNode;
 import syntaxtree.expression.IDExpressionNode;
+import syntaxtree.meta.FunctionNode;
+import syntaxtree.meta.ParameterNode;
 import syntaxtree.statement.VarDeclarationStatementNode;
 import tokens.Token;
 import tokens.TokenType;
@@ -26,6 +28,11 @@ public final class Parser
    * The currently known identifier's type (when provided)
    */
   private Class<?> identifierType;
+
+  /**
+   * The current token being examined
+   */
+  private Token currentToken;
 
   /**
    * Full constructor for the Parser
@@ -54,28 +61,28 @@ public final class Parser
   {
     AbstractSyntaxTreeNode statement = null;
 
-    Token firstToken = tokenList.pop();
+    currentToken = tokenList.pop();
 
-    while (firstToken.getType() != TokenType.BOOKKEEPING_END_OF_FILE)
+    while (currentToken.getType() != TokenType.BOOKKEEPING_END_OF_FILE)
     {
-      TokenType tokenType = firstToken.getType();
+      TokenType tokenType = currentToken.getType();
       switch (tokenType)
       {
         case RESERVED_INT:
         {
           identifierType = Integer.class;
-          firstToken = tokenList.pop();
+          currentToken = tokenList.pop();
           break;
         }
 
         case RESERVED_VOID:
         {
           identifierType = Void.class;
-          firstToken = tokenList.pop();
+          currentToken = tokenList.pop();
         }
         case VARIABLE_IDENTIFIER:
         {
-          resolveIDAmbiguity(firstToken);
+          statement = resolveIDAmbiguity();
         }
         default:
         {
@@ -86,7 +93,7 @@ public final class Parser
     return statement;
   }
 
-  private AbstractSyntaxTreeNode resolveIDAmbiguity(final Token token)
+  private AbstractSyntaxTreeNode resolveIDAmbiguity()
   {
     // Take a peek at the next token in the list to get some context
     Token nextToken = tokenList.peek();
@@ -102,14 +109,27 @@ public final class Parser
       if (identifierType == null)
       {
         IDExpressionNode idNode = new IDExpressionNode();
-        idNode.setAttributeName(token.getLexeme());
+        idNode.setAttributeName(currentToken.getLexeme());
 
         return idNode;
       }
       // If there is an known type, create a VarDeclarationStatementNode
       else
       {
-        return createVarDeclaration(token);
+        return createVarDeclaration(currentToken);
+      }
+    }
+    else if (match(type, TokenType.SPECIAL_LEFT_PAREN))
+    {
+      tokenList.pop();
+      if (identifierType == null)
+      {
+        // Create a function call
+      }
+      else
+      {
+        // Create a function structure
+        return createFunction();
       }
     }
 
@@ -141,6 +161,82 @@ public final class Parser
     return declaration;
   }
 
+  private FunctionNode createFunction()
+  {
+    FunctionNode function = new FunctionNode();
+    function.setAttributeName(currentToken.getLexeme());
+    function.setAttributeType(identifierType);
+    identifierType = null;
+
+    currentToken = tokenList.pop();
+
+    // Add parameter list
+    function.addChild(processParameterList());
+
+    if (!match(currentToken.getType(), TokenType.SPECIAL_RIGHT_PAREN))
+    {
+      logSyntaxError(currentToken, TokenType.SPECIAL_RIGHT_PAREN);
+    }
+    // Pop off the right parenthesis (hopefully)
+    currentToken = tokenList.pop();
+
+    // Function body
+
+    return function;
+  }
+
+  private ParameterNode processParameterList()
+  {
+    ParameterNode parameter = processParameter();
+
+    if (match(currentToken.getType(), TokenType.SPECIAL_COMMA))
+    {
+      currentToken = tokenList.pop();
+      parameter.setSibling(processParameterList());
+    }
+
+    return parameter;
+  }
+
+  private ParameterNode processParameter()
+  {
+    ParameterNode parameter = null;
+
+    TokenType currentType = currentToken.getType();
+
+    if (!match(currentType, TokenType.RESERVED_INT) &&
+        !match(currentType, TokenType.RESERVED_VOID))
+    {
+      tokenList.pop();
+
+      logSyntaxError(currentToken, "RESERVED_INT or RESERVED_VOID");
+    }
+    else
+    {
+      if (match(currentType, TokenType.RESERVED_VOID))
+      {
+        parameter = new ParameterNode();
+      }
+      else
+      {
+        currentToken = tokenList.pop();
+        if (!match(currentToken.getType(), TokenType.VARIABLE_IDENTIFIER))
+        {
+          logSyntaxError(currentToken, TokenType.VARIABLE_IDENTIFIER);
+        }
+        else
+        {
+          parameter = new ParameterNode();
+          parameter.setAttributeName(currentToken.getLexeme());
+          parameter.setAttributeType(Integer.class);
+        }
+      }
+      currentToken = tokenList.pop();
+    }
+
+    return parameter;
+  }
+
   /**
    * Attempt to match the current token type with the expected token
    * type. If a match occurs, the token list will be moved forward by
@@ -153,18 +249,17 @@ public final class Parser
    */
   private boolean match(final TokenType current, final TokenType expected)
   {
-    if (current == expected)
-    {
-      tokenList.pop();
-      return true;
-    }
-
-    return false;
+    return current == expected;
   }
 
   private void logSyntaxError(final Token token, final TokenType expected)
   {
+    logSyntaxError(token, expected.toString());
+  }
+
+  private void logSyntaxError(final Token token, final String expected)
+  {
     System.err.printf("SYNTAX ERROR (Line %d)- Unexpected Token %s, Expected %s\n",
-        token.getLineNumber(), token.getType().toString(), expected.toString());
+        token.getLineNumber(), token.getType().toString(), expected);
   }
 }

@@ -7,7 +7,7 @@ import tokens.TokenType;
  * Concrete class representing an identifier expression node
  * in the abstract syntax tree
  */
-public class IDExpressionNode extends ExpressionNode
+public final class IDExpressionNode extends ExpressionNode
 {
     /**
      * Full constructor for the IDExpressionNode
