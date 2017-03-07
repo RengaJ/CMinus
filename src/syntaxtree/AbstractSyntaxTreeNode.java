@@ -115,6 +115,13 @@ public abstract class AbstractSyntaxTreeNode
     return children.size();
   }
 
+  /**
+   * Get the enumerated type of the current Abstract Syntax Tree node
+   *
+   * @return The ASTNodeType that represents the current node type
+   */
+  public abstract ASTNodeType getNodeType();
+
   /////////////////////////////////
   // Attribute Related Accessors //
   /////////////////////////////////
