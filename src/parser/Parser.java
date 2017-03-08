@@ -4,6 +4,7 @@ import syntaxtree.AbstractSyntaxTreeNode;
 import syntaxtree.expression.IDExpressionNode;
 import syntaxtree.meta.FunctionNode;
 import syntaxtree.meta.ParameterNode;
+import syntaxtree.statement.StatementNode;
 import syntaxtree.statement.VarDeclarationStatementNode;
 import tokens.Token;
 import tokens.TokenType;
@@ -64,7 +65,8 @@ public final class Parser
     currentToken = tokenList.pop();
 
     while (statement == null &&
-           currentToken.getType() != TokenType.BOOKKEEPING_END_OF_FILE)
+           !match(currentToken.getType(), TokenType.BOOKKEEPING_END_OF_FILE) &&
+           !match(currentToken.getType(), TokenType.SPECIAL_RIGHT_BRACE))
     {
       TokenType tokenType = currentToken.getType();
       switch (tokenType)
@@ -107,6 +109,8 @@ public final class Parser
     // Extract the token type so that
     TokenType type = nextToken.getType();
 
+    AbstractSyntaxTreeNode node = null;
+
     // If the next token is a semi-colon ( ; ), the current operation is
     // a variable declaration ( var-declaration --> type-specifier ID; )
     if (match(type, TokenType.SPECIAL_SEMICOLON))
@@ -117,12 +121,13 @@ public final class Parser
         IDExpressionNode idNode = new IDExpressionNode();
         idNode.setAttributeName(currentToken.getLexeme());
 
-        return idNode;
+        node = idNode;
       }
       // If there is an known type, create a VarDeclarationStatementNode
       else
       {
-        return createVarDeclaration(currentToken);
+        node = createVarDeclaration(currentToken);
+        tokenList.pop();
       }
     }
     else if (match(type, TokenType.SPECIAL_LEFT_PAREN))
@@ -135,11 +140,11 @@ public final class Parser
       else
       {
         // Create a function structure
-        return createFunction();
+        node =createFunction();
       }
     }
 
-    return null;
+    return node;
   }
 
   /**
@@ -192,9 +197,8 @@ public final class Parser
       logSyntaxError(currentToken, TokenType.SPECIAL_LEFT_BRACE);
     }
 
-    currentToken = tokenList.pop();
-
     // Function body
+    function.addChild(createSyntaxTree());
 
     return function;
   }

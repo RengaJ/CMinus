@@ -50,7 +50,10 @@ public abstract class AbstractSyntaxTreeNode
    */
   public void addChild(AbstractSyntaxTreeNode child)
   {
-    children.add(child);
+    if (child != null)
+    {
+      children.add(child);
+    }
   }
 
   /**

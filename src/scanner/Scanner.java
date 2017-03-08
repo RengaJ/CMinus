@@ -85,7 +85,7 @@ public final class Scanner
    * @throws IOException Thrown if there are any file operation
    *                     issues (opening, reading or closing).
    */
-  public Deque<Token> scanForTokens(File file) throws IOException
+  public ArrayDeque<Token> scanForTokens(File file) throws IOException
   {
     if (file == null)
     {
@@ -96,7 +96,7 @@ public final class Scanner
 
     // Create the list that will contain the tokens generated
     // by the Scanner
-    Deque<Token> tokenList = new ArrayDeque<>();
+    ArrayDeque<Token> tokenList = new ArrayDeque<>();
 
     // Keep track of the current scanner state
     ScannerState scannerState = ScannerState.START_STATE;

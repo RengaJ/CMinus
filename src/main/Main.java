@@ -159,55 +159,11 @@ public final class Main
     {
       Scanner scanner = new Scanner();
 
-      scanner.scanForTokens(sourceFile);
-
-      // TODO: REMOVE
-      // Create a custom Deque for testing purposes
-      // that corresponds to the following C- code (not syntactically correct):
-      // int gcd ( int u, int v ) { } void main ( void ) { } \0
-      ArrayDeque<Token> testDeque = new ArrayDeque<>();
-      testDeque.add(new IntToken());
-
-      IdentifierToken id = new IdentifierToken();
-      id.setLexeme("gcd");
-      testDeque.add(id);
-      testDeque.add(new LeftParenthesisToken());
-
-      IdentifierToken u = new IdentifierToken();
-      u.setLexeme("u");
-
-      testDeque.add(new IntToken());
-      testDeque.add(u);
-
-      testDeque.add(new CommaToken());
-
-      IdentifierToken v = new IdentifierToken();
-      v.setLexeme("v");
-
-      testDeque.add(new IntToken());
-      testDeque.add(v);
-
-      testDeque.add(new RightParenthesisToken());
-      testDeque.add(new LeftBraceToken());
-      testDeque.add(new RightBraceToken());
-
-      testDeque.add(new VoidToken());
-
-      IdentifierToken mainToken = new IdentifierToken();
-      mainToken.setLexeme("main");
-      testDeque.add(mainToken);
-      testDeque.add(new LeftParenthesisToken());
-
-      testDeque.add(new VoidToken());
-
-      testDeque.add(new RightParenthesisToken());
-      testDeque.add(new LeftBraceToken());
-      testDeque.add(new RightBraceToken());
-      testDeque.add(new EndOfFileToken());
+      ArrayDeque<Token> tokens = scanner.scanForTokens(sourceFile);
 
       Parser parser = new Parser();
 
-      AbstractSyntaxTreeNode ast = parser.parse(testDeque);
+      AbstractSyntaxTreeNode ast = parser.parse(tokens);
 
       System.out.println("Compilation Completed.");
     }
