@@ -103,6 +103,17 @@ public final class Parser
           statement = processIfStatement();
           break;
         }
+
+        case RESERVED_WHILE:
+        {
+
+        }
+
+        case RESERVED_INPUT:
+        case RESERVED_OUTPUT:
+        {
+          break;
+        }
         default:
         {
           break;
@@ -136,40 +147,74 @@ public final class Parser
 
     AbstractSyntaxTreeNode node = null;
 
-    // If the next token is a semi-colon ( ; ), the current operation is
-    // a variable declaration ( var-declaration --> type-specifier ID; )
-    if (match(type, TokenType.SPECIAL_SEMICOLON))
+    switch (type)
     {
-      // If there is no known type, create an IDExpressionNode
-      if (identifierType == null)
-      {
-        IDExpressionNode idNode = new IDExpressionNode();
-        idNode.setName(currentToken.getLexeme());
-        idNode.setLineNumber(currentToken.getLineNumber());
 
-        node = idNode;
-      }
-      // If there is an known type, create a VarDeclarationStatementNode
-      else
+      // If the next token is a semi-colon ( ; ), the current operation is
+      // a variable declaration ( var-declaration --> type-specifier ID; )
+      case SPECIAL_SEMICOLON:
       {
-        node = createVarDeclaration(currentToken);
+        // If there is no known type, create an IDExpressionNode
+        if (identifierType == null)
+        {
+          IDExpressionNode idNode = new IDExpressionNode();
+          idNode.setName(currentToken.getLexeme());
+          idNode.setLineNumber(currentToken.getLineNumber());
+
+          node = idNode;
+        }
+        // If there is an known type, create a VarDeclarationStatementNode
+        else
+        {
+          node = createVarDeclaration(currentToken);
+          tokenList.pop();
+        }
+        break;
+      }
+
+      // If the next token
+      case SPECIAL_LEFT_PAREN:
+      {
         tokenList.pop();
+        if (identifierType == null)
+        {
+          // Create a function call
+        }
+        else
+        {
+          // Create a function structure
+          node = createFunction();
+        }
+        break;
       }
-    }
-    else if (match(type, TokenType.SPECIAL_LEFT_PAREN))
-    {
-      tokenList.pop();
-      if (identifierType == null)
-      {
-        // Create a function call
-      }
-      else
-      {
-        // Create a function structure
-        node = createFunction();
-      }
-    }
 
+      case SPECIAL_LEFT_BRACKET:
+      {
+        break;
+      }
+
+      case SPECIAL_COMMA:
+      {
+        break;
+      }
+
+      case SPECIAL_PLUS:
+      case SPECIAL_MINUS:
+      case SPECIAL_DIVIDE:
+      case SPECIAL_TIMES:
+      case SPECIAL_GREATER_THAN:
+      case SPECIAL_GTE:
+      case SPECIAL_LESS_THAN:
+      case SPECIAL_LTE:
+      {
+        break;
+      }
+
+      default:
+      {
+        logSyntaxError();
+      }
+    }
     return node;
   }
 
@@ -368,6 +413,16 @@ public final class Parser
     return null;
   }
 
+  private ExpressionNode processTerm()
+  {
+    return null;
+  }
+
+  private ExpressionNode processFactor()
+  {
+    return null;
+  }
+
   /**
    *
    * @param current The current token type
@@ -406,7 +461,13 @@ public final class Parser
 
   private void logSyntaxError(final Token token, final String expected)
   {
-    System.err.printf("SYNTAX ERROR (Line %d)- Unexpected Token %s, Expected %s\n",
+    System.err.printf("SYNTAX ERROR (Line %d) - Unexpected Token %s, Expected %s\n",
         token.getLineNumber(), token.getType().toString(), expected);
+  }
+
+  private void logSyntaxError()
+  {
+    System.err.printf("SYNTAX ERROR (Line %d) - Unexepected Token %s\n",
+        currentToken.getLineNumber(), currentToken.getType().toString());
   }
 }
