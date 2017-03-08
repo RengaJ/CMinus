@@ -5,6 +5,7 @@ import syntaxtree.expression.ExpressionNode;
 import syntaxtree.expression.IDExpressionNode;
 import syntaxtree.meta.FunctionNode;
 import syntaxtree.meta.ParameterNode;
+import syntaxtree.statement.IfStatementNode;
 import syntaxtree.statement.ReturnStatementNode;
 import syntaxtree.statement.VarDeclarationStatementNode;
 import tokens.Token;
@@ -94,7 +95,12 @@ public final class Parser
         case RESERVED_RETURN:
         {
           statement = processReturnStatement();
+          break;
+        }
 
+        case RESERVED_IF:
+        {
+          statement = processIfStatement();
           break;
         }
         default:
@@ -112,6 +118,14 @@ public final class Parser
     return statement;
   }
 
+  /**
+   * Resolves the ambiguity inherent with Identifier Tokens. This
+   * function will pick the correct node based on the next token
+   * in the token list
+   *
+   * @return The appropriate AbstractSyntaxTreeNode based on the current
+   *         context.
+   */
   private AbstractSyntaxTreeNode resolveIDAmbiguity()
   {
     // Take a peek at the next token in the list to get some context
@@ -285,15 +299,76 @@ public final class Parser
     return returnStatement;
   }
 
+  /**
+   * This function processes the IfToken detected from
+   * the queue. The current token is the detected IfToken.
+   *
+   * @return The complete if-statement node
+   */
+  private IfStatementNode processIfStatement()
+  {
+    IfStatementNode ifStatement = new IfStatementNode();
+    ifStatement.setLineNumber(currentToken.getLineNumber());
+
+    // Make sure the next token is the left parenthesis
+    matchAndPop(TokenType.SPECIAL_LEFT_PAREN);
+
+    ifStatement.addChild(processExpression());
+
+    // Make sure the next token is the right parenthesis
+    matchAndPop(TokenType.SPECIAL_RIGHT_PAREN);
+
+    // Check to see if multiple statements will be added, or if
+    // only a single statment should be processed:
+    // Multiple statements:
+    //     if (<condition>) {
+    //        <statement 1>
+    //        <statement 2>
+    //     }
+    // Single statement
+    //     if (<condition>) <statement>
+    if (match(currentToken.getType(), TokenType.SPECIAL_LEFT_BRACE))
+    {
+      // Perform multiple statement processing
+      ifStatement.addChild(createSyntaxTree());
+
+      // Ensure that the next token is a closing brace
+      matchAndPop(TokenType.SPECIAL_RIGHT_BRACE);
+    }
+    else
+    {
+      // Perform single statement processing
+    }
+
+    // Check to see if there is an else keyword here
+    if (match(currentToken.getType(), TokenType.RESERVED_ELSE))
+    {
+      // Pop off the ELSE token, and check for a function body start ( { )
+      currentToken = tokenList.pop();
+      if (match(currentToken.getType(), TokenType.SPECIAL_LEFT_BRACE))
+      {
+        // Perform multiple statement processing
+        ifStatement.addChild(createSyntaxTree());
+
+        // Ensure that the next token is a closing brace
+        matchAndPop(TokenType.SPECIAL_RIGHT_BRACE);
+      }
+      else
+      {
+        // Perform single statement processing
+      }
+    }
+
+    // The if-statement is now complete
+    return ifStatement;
+  }
+
   private ExpressionNode processExpression()
   {
     return null;
   }
 
   /**
-   * Attempt to match the current token type with the expected token
-   * type. If a match occurs, the token list will be moved forward by
-   * one token.
    *
    * @param current The current token type
    * @param expected The expected token type
@@ -303,6 +378,25 @@ public final class Parser
   private boolean match(final TokenType current, final TokenType expected)
   {
     return current == expected;
+  }
+
+  /**
+   * Attempt to match the current token type with the expected token
+   * type. If a match occurs, the token list will be moved forward by
+   * one token. If a match fails, a syntax error will be reported.
+   *
+   * @param expected The expected token type
+   */
+  private void matchAndPop(final TokenType expected)
+  {
+    if (!match(currentToken.getType(), expected))
+    {
+      logSyntaxError(currentToken, expected);
+    }
+    else
+    {
+      currentToken = tokenList.pop();
+    }
   }
 
   private void logSyntaxError(final Token token, final TokenType expected)
