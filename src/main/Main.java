@@ -5,11 +5,6 @@ import parser.Parser;
 import scanner.Scanner;
 import syntaxtree.AbstractSyntaxTreeNode;
 import tokens.Token;
-import tokens.bookkeeping.EndOfFileToken;
-import tokens.reserved.IntToken;
-import tokens.reserved.VoidToken;
-import tokens.special.*;
-import tokens.variable.IdentifierToken;
 
 import java.io.File;
 import java.io.FileNotFoundException;

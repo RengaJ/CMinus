@@ -1,10 +1,13 @@
 package parser;
 
 import syntaxtree.AbstractSyntaxTreeNode;
+import syntaxtree.expression.ConstantExpressionNode;
 import syntaxtree.expression.ExpressionNode;
 import syntaxtree.expression.IDExpressionNode;
+import syntaxtree.expression.OperationExpressionNode;
 import syntaxtree.meta.FunctionNode;
 import syntaxtree.meta.ParameterNode;
+import syntaxtree.expression.AssignExpressionNode;
 import syntaxtree.statement.IfStatementNode;
 import syntaxtree.statement.ReturnStatementNode;
 import syntaxtree.statement.VarDeclarationStatementNode;
@@ -67,8 +70,8 @@ public final class Parser
     currentToken = tokenList.pop();
 
     while (statement == null &&
-           !match(currentToken.getType(), TokenType.BOOKKEEPING_END_OF_FILE) &&
-           !match(currentToken.getType(), TokenType.SPECIAL_RIGHT_BRACE))
+           !matchCurrent(TokenType.BOOKKEEPING_END_OF_FILE) &&
+           !matchCurrent(TokenType.SPECIAL_RIGHT_BRACE))
     {
       TokenType tokenType = currentToken.getType();
       switch (tokenType)
@@ -88,7 +91,7 @@ public final class Parser
         }
         case VARIABLE_IDENTIFIER:
         {
-          statement = resolveIDAmbiguity();
+          statement = processExpression();
           break;
         }
 
@@ -122,7 +125,7 @@ public final class Parser
     }
 
     if (statement != null &&
-        !match(currentToken.getType(), TokenType.BOOKKEEPING_END_OF_FILE))
+        !matchCurrent(TokenType.BOOKKEEPING_END_OF_FILE))
     {
       statement.setSibling(createSyntaxTree());
     }
@@ -137,17 +140,14 @@ public final class Parser
    * @return The appropriate AbstractSyntaxTreeNode based on the current
    *         context.
    */
-  private AbstractSyntaxTreeNode resolveIDAmbiguity()
+  private AbstractSyntaxTreeNode processExpression()
   {
-    // Take a peek at the next token in the list to get some context
-    Token nextToken = tokenList.peek();
-
-    // Extract the token type so that
-    TokenType type = nextToken.getType();
-
     AbstractSyntaxTreeNode node = null;
 
-    switch (type)
+    // Take a peek at the next token in the list to get some context
+    TokenType nextType = tokenList.peek().getType();
+
+    switch (nextType)
     {
 
       // If the next token is a semi-colon ( ; ), the current operation is
@@ -162,6 +162,9 @@ public final class Parser
           idNode.setLineNumber(currentToken.getLineNumber());
 
           node = idNode;
+
+          // Pop off the identifier
+          tokenList.pop();
         }
         // If there is an known type, create a VarDeclarationStatementNode
         else
@@ -195,6 +198,19 @@ public final class Parser
 
       case SPECIAL_COMMA:
       {
+        // This shouldn't happen
+        if (identifierType != null)
+        {
+          node = processParameter();
+        }
+        // This should happen
+        else
+        {
+          node = new IDExpressionNode();
+          node.setName(currentToken.getLexeme());
+          node.setLineNumber(currentToken.getLineNumber());
+          node.setTokenType(TokenType.VARIABLE_IDENTIFIER);
+        }
         break;
       }
 
@@ -206,7 +222,16 @@ public final class Parser
       case SPECIAL_GTE:
       case SPECIAL_LESS_THAN:
       case SPECIAL_LTE:
+      case SPECIAL_EQUAL:
+      case SPECIAL_NOT_EQUAL:
       {
+        node = processSimpleExpression();
+        break;
+      }
+
+      case SPECIAL_ASSIGN:
+      {
+        node = processAssign();
         break;
       }
 
@@ -257,15 +282,15 @@ public final class Parser
     // Add parameter list
     function.addChild(processParameterList());
 
-    if (!match(currentToken.getType(), TokenType.SPECIAL_RIGHT_PAREN))
+    if (!matchCurrent(TokenType.SPECIAL_RIGHT_PAREN))
     {
       logSyntaxError(currentToken, TokenType.SPECIAL_RIGHT_PAREN);
     }
     // Pop off the right parenthesis (hopefully)
     currentToken = tokenList.pop();
 
-    // match the left brace ( { )
-    if (!match(currentToken.getType(), TokenType.SPECIAL_LEFT_BRACE))
+    // matchNext the left brace ( { )
+    if (!matchCurrent(TokenType.SPECIAL_LEFT_BRACE))
     {
       logSyntaxError(currentToken, TokenType.SPECIAL_LEFT_BRACE);
     }
@@ -280,7 +305,7 @@ public final class Parser
   {
     ParameterNode parameter = processParameter();
 
-    if (match(currentToken.getType(), TokenType.SPECIAL_COMMA))
+    if (matchCurrent(TokenType.SPECIAL_COMMA))
     {
       currentToken = tokenList.pop();
       parameter.setSibling(processParameterList());
@@ -293,10 +318,8 @@ public final class Parser
   {
     ParameterNode parameter = null;
 
-    TokenType currentType = currentToken.getType();
-
-    if (!match(currentType, TokenType.RESERVED_INT) &&
-        !match(currentType, TokenType.RESERVED_VOID))
+    if (!matchCurrent(TokenType.RESERVED_INT) &&
+        !matchCurrent(TokenType.RESERVED_VOID))
     {
       tokenList.pop();
 
@@ -304,15 +327,22 @@ public final class Parser
     }
     else
     {
-      if (match(currentType, TokenType.RESERVED_VOID))
+      if (matchCurrent(TokenType.RESERVED_VOID))
       {
+        identifierType = Void.class;
         parameter = new ParameterNode();
         parameter.setLineNumber(currentToken.getLineNumber());
+        if (matchNext(TokenType.VARIABLE_IDENTIFIER))
+        {
+          matchAndPop(currentToken.getType());
+          parameter.setName(currentToken.getLexeme());
+        }
       }
       else
       {
-        currentToken = tokenList.pop();
-        if (!match(currentToken.getType(), TokenType.VARIABLE_IDENTIFIER))
+        identifierType = Integer.class;
+        matchAndPop(currentToken.getType());
+        if (!matchCurrent(TokenType.VARIABLE_IDENTIFIER))
         {
           logSyntaxError(currentToken, TokenType.VARIABLE_IDENTIFIER);
         }
@@ -327,6 +357,10 @@ public final class Parser
       currentToken = tokenList.pop();
     }
 
+    if (parameter != null)
+    {
+      parameter.setTokenType(TokenType.VARIABLE_IDENTIFIER);
+    }
     return parameter;
   }
 
@@ -335,8 +369,9 @@ public final class Parser
     ReturnStatementNode returnStatement = new ReturnStatementNode();
     returnStatement.setLineNumber(currentToken.getLineNumber());
 
-    currentToken = tokenList.pop();
-    if (!match(currentToken.getType(), TokenType.SPECIAL_SEMICOLON))
+    // Pop off the RESERVED_RETURN token
+    matchAndPop(currentToken.getType());
+    if (!matchCurrent(TokenType.SPECIAL_SEMICOLON))
     {
       returnStatement.addChild(processExpression());
     }
@@ -356,15 +391,10 @@ public final class Parser
     ifStatement.setLineNumber(currentToken.getLineNumber());
 
     // Make sure the next token is the left parenthesis
-    matchAndPop(TokenType.SPECIAL_LEFT_PAREN);
-
-    ifStatement.addChild(processExpression());
-
-    // Make sure the next token is the right parenthesis
-    matchAndPop(TokenType.SPECIAL_RIGHT_PAREN);
+    processParenthesis();
 
     // Check to see if multiple statements will be added, or if
-    // only a single statment should be processed:
+    // only a single statement should be processed:
     // Multiple statements:
     //     if (<condition>) {
     //        <statement 1>
@@ -372,7 +402,7 @@ public final class Parser
     //     }
     // Single statement
     //     if (<condition>) <statement>
-    if (match(currentToken.getType(), TokenType.SPECIAL_LEFT_BRACE))
+    if (matchCurrent(TokenType.SPECIAL_LEFT_BRACE))
     {
       // Perform multiple statement processing
       ifStatement.addChild(createSyntaxTree());
@@ -386,11 +416,12 @@ public final class Parser
     }
 
     // Check to see if there is an else keyword here
-    if (match(currentToken.getType(), TokenType.RESERVED_ELSE))
+    if (matchCurrent(TokenType.RESERVED_ELSE))
     {
       // Pop off the ELSE token, and check for a function body start ( { )
-      currentToken = tokenList.pop();
-      if (match(currentToken.getType(), TokenType.SPECIAL_LEFT_BRACE))
+      matchAndPop(TokenType.RESERVED_ELSE);
+
+      if (matchCurrent(TokenType.SPECIAL_LEFT_BRACE))
       {
         // Perform multiple statement processing
         ifStatement.addChild(createSyntaxTree());
@@ -408,43 +439,141 @@ public final class Parser
     return ifStatement;
   }
 
-  private ExpressionNode processExpression()
+  private ExpressionNode processSimpleExpression()
   {
-    return null;
+    ExpressionNode simpleExp = processAdditiveExpression();
+
+    // Is the current token a relational operator?
+    if (matchCurrent(TokenType.SPECIAL_EQUAL) ||
+        matchCurrent(TokenType.SPECIAL_NOT_EQUAL) ||
+        matchCurrent(TokenType.SPECIAL_GREATER_THAN) ||
+        matchCurrent(TokenType.SPECIAL_GTE) ||
+        matchCurrent(TokenType.SPECIAL_LESS_THAN) ||
+        matchCurrent(TokenType.SPECIAL_LTE))
+    {
+      OperationExpressionNode opNode =
+          new OperationExpressionNode(currentToken.getType());
+      opNode.setLineNumber(currentToken.getLineNumber());
+      opNode.setType(Boolean.class);
+      opNode.addChild(simpleExp);
+
+      // Change the orientation of the hierarchy
+      simpleExp = opNode;
+
+      matchAndPop(currentToken.getType());
+
+      simpleExp.addChild(processAdditiveExpression());
+    }
+
+    return simpleExp;
+  }
+
+  private ExpressionNode processAdditiveExpression()
+  {
+    ExpressionNode term = processTerm();
+
+    return term;
   }
 
   private ExpressionNode processTerm()
   {
-    return null;
+    ExpressionNode factor = processFactor();
+
+    if (matchCurrent(TokenType.SPECIAL_DIVIDE) ||
+        matchCurrent(TokenType.SPECIAL_TIMES))
+    {
+      //
+    }
+
+    return factor;
   }
 
   private ExpressionNode processFactor()
   {
-    return null;
+    ExpressionNode node;
+
+    if (matchCurrent(TokenType.VARIABLE_NUMBER))
+    {
+      node = new ConstantExpressionNode();
+      node.setValue(Integer.parseInt(currentToken.getLexeme()));
+      node.setLineNumber(currentToken.getLineNumber());
+
+      currentToken = tokenList.pop();
+    }
+    else if (matchCurrent(TokenType.SPECIAL_LEFT_PAREN))
+    {
+      node = processParenthesis();
+    }
+    else
+    {
+      node = new IDExpressionNode();
+      node.setName(currentToken.getLexeme());
+      node.setLineNumber(currentToken.getLineNumber());
+      node.setTokenType(TokenType.VARIABLE_IDENTIFIER);
+
+      matchAndPop(currentToken.getType());
+    }
+    return node;
+  }
+
+  private AssignExpressionNode processAssign()
+  {
+    AssignExpressionNode assign = new AssignExpressionNode();
+    assign.setName(currentToken.getLexeme());
+    assign.setLineNumber(currentToken.getLineNumber());
+
+    // Pop off the = symbol from the queue
+    tokenList.pop();
+
+    // Assign the new top as the current token
+    matchAndPop(currentToken.getType());
+    assign.addChild(processExpression());
+
+    return assign;
+  }
+
+  private ExpressionNode processParenthesis()
+  {
+    matchAndPop(TokenType.SPECIAL_LEFT_PAREN);
+    ExpressionNode node = (ExpressionNode)processExpression();
+    matchAndPop(TokenType.SPECIAL_RIGHT_PAREN);
+
+    return node;
   }
 
   /**
    *
-   * @param current The current token type
    * @param expected The expected token type
    *
-   * @return True if the current and expected token types match, otherwise False
+   * @return True if the current and expected token types matchNext, otherwise False
    */
-  private boolean match(final TokenType current, final TokenType expected)
+  private boolean matchNext(final TokenType expected)
   {
-    return current == expected;
+    return tokenList.peek().getType() == expected;
   }
 
   /**
-   * Attempt to match the current token type with the expected token
-   * type. If a match occurs, the token list will be moved forward by
-   * one token. If a match fails, a syntax error will be reported.
+   * Function used to matchNext the current token with an expected type.
+   *
+   * @param expected The expected token type
+   * @return True if the true current type and the expected types matchNext, otherwise
+   *         False
+   */
+  private boolean matchCurrent(final TokenType expected)
+  {
+    return currentToken.getType() == expected;
+  }
+
+  /**
+   * Attempt to matchNext the current token type with the expected token
+   * type. If a matchNext occurs, the token list will be moved forward by
+   * one token. If a matchNext fails, a syntax error will be reported.
    *
    * @param expected The expected token type
    */
   private void matchAndPop(final TokenType expected)
   {
-    if (!match(currentToken.getType(), expected))
+    if (!matchCurrent(expected))
     {
       logSyntaxError(currentToken, expected);
     }
