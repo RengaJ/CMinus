@@ -18,6 +18,6 @@ public abstract class StatementNode extends AbstractSyntaxTreeNode
     {
         super();
 
-        setAttributeTokenType(tokenType);
+        setTokenType(tokenType);
     }
 }

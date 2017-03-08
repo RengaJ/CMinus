@@ -1,10 +1,11 @@
 package parser;
 
 import syntaxtree.AbstractSyntaxTreeNode;
+import syntaxtree.expression.ExpressionNode;
 import syntaxtree.expression.IDExpressionNode;
 import syntaxtree.meta.FunctionNode;
 import syntaxtree.meta.ParameterNode;
-import syntaxtree.statement.StatementNode;
+import syntaxtree.statement.ReturnStatementNode;
 import syntaxtree.statement.VarDeclarationStatementNode;
 import tokens.Token;
 import tokens.TokenType;
@@ -82,10 +83,19 @@ public final class Parser
         {
           identifierType = Void.class;
           currentToken = tokenList.pop();
+          break;
         }
         case VARIABLE_IDENTIFIER:
         {
           statement = resolveIDAmbiguity();
+          break;
+        }
+
+        case RESERVED_RETURN:
+        {
+          statement = processReturnStatement();
+
+          break;
         }
         default:
         {
@@ -94,7 +104,8 @@ public final class Parser
       }
     }
 
-    if (statement != null && !match(currentToken.getType(), TokenType.BOOKKEEPING_END_OF_FILE))
+    if (statement != null &&
+        !match(currentToken.getType(), TokenType.BOOKKEEPING_END_OF_FILE))
     {
       statement.setSibling(createSyntaxTree());
     }
@@ -119,7 +130,8 @@ public final class Parser
       if (identifierType == null)
       {
         IDExpressionNode idNode = new IDExpressionNode();
-        idNode.setAttributeName(currentToken.getLexeme());
+        idNode.setName(currentToken.getLexeme());
+        idNode.setLineNumber(currentToken.getLineNumber());
 
         node = idNode;
       }
@@ -140,7 +152,7 @@ public final class Parser
       else
       {
         // Create a function structure
-        node =createFunction();
+        node = createFunction();
       }
     }
 
@@ -162,8 +174,9 @@ public final class Parser
 
     // Set various attributes on the VarDeclarationNode for
     // usage in the semantic analyzer
-    declaration.setAttributeName(token.getLexeme());
-    declaration.setAttributeType(identifierType);
+    declaration.setName(token.getLexeme());
+    declaration.setType(identifierType);
+    declaration.setLineNumber(token.getLineNumber());
 
     // Reset the identifier type for next time
     identifierType = null;
@@ -175,8 +188,9 @@ public final class Parser
   private FunctionNode createFunction()
   {
     FunctionNode function = new FunctionNode();
-    function.setAttributeName(currentToken.getLexeme());
-    function.setAttributeType(identifierType);
+    function.setName(currentToken.getLexeme());
+    function.setLineNumber(currentToken.getLineNumber());
+    function.setType(identifierType);
     identifierType = null;
 
     currentToken = tokenList.pop();
@@ -234,6 +248,7 @@ public final class Parser
       if (match(currentType, TokenType.RESERVED_VOID))
       {
         parameter = new ParameterNode();
+        parameter.setLineNumber(currentToken.getLineNumber());
       }
       else
       {
@@ -245,14 +260,34 @@ public final class Parser
         else
         {
           parameter = new ParameterNode();
-          parameter.setAttributeName(currentToken.getLexeme());
-          parameter.setAttributeType(Integer.class);
+          parameter.setName(currentToken.getLexeme());
+          parameter.setLineNumber(currentToken.getLineNumber());
+          parameter.setType(Integer.class);
         }
       }
       currentToken = tokenList.pop();
     }
 
     return parameter;
+  }
+
+  private ReturnStatementNode processReturnStatement()
+  {
+    ReturnStatementNode returnStatement = new ReturnStatementNode();
+    returnStatement.setLineNumber(currentToken.getLineNumber());
+
+    currentToken = tokenList.pop();
+    if (!match(currentToken.getType(), TokenType.SPECIAL_SEMICOLON))
+    {
+      returnStatement.addChild(processExpression());
+    }
+
+    return returnStatement;
+  }
+
+  private ExpressionNode processExpression()
+  {
+    return null;
   }
 
   /**

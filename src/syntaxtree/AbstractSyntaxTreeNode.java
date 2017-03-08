@@ -25,22 +25,46 @@ public abstract class AbstractSyntaxTreeNode
   private AbstractSyntaxTreeNode sibling;
 
   /**
-   * The contained attribute of the Abstract Syntax Tree Node. This
-   * is used to store additional meta-information without cluttering
-   * up the definition of the Abstract Syntax Tree Node object.
+   * The type of token represented by the AST Node.
+   * Used primarily for operation codes
    */
-  private SyntaxAttribute attribute;
+  private TokenType tokenType;
+
+  /**
+   * The contained value of the  AST Node
+   * (Used for constant numbers)
+   */
+  private int value;
+
+  /**
+   * The name of the AST Node (Used to provide necessary context/
+   * identifier information)
+   */
+  private String name;
+
+  /**
+   * The class object representation of the Type for the AST Node
+   */
+  private Class<?> type;
+
+  /**
+   * The line number that this Abstract Syntax Tree Node would reside on
+   */
+  private int lineNumber;
 
   /**
    * Full constructor for the Abstract Syntax Tree Node object
    */
   public AbstractSyntaxTreeNode()
   {
-    children = new ArrayList<>();
+    children   = new ArrayList<>();
+    sibling    = null;
+    tokenType  = TokenType.BOOKKEEPING_ERROR;
+    value      = Integer.MIN_VALUE;
+    name       = "";
+    type       = Void.class;
+    lineNumber = 0;
 
-    sibling = null;
-
-    attribute = new SyntaxAttribute();
   }
 
   /**
@@ -130,44 +154,54 @@ public abstract class AbstractSyntaxTreeNode
   /////////////////////////////////
 
   /**
-   * Set the value of the attribute's token type
+   * Set the contained token type
    *
-   * @param tokenType The new token type of the attribute
+   * @param tokenType The new token type of the node
    */
-  public void setAttributeTokenType(final TokenType tokenType)
+  public void setTokenType(final TokenType tokenType)
   {
-    attribute.setTokenType(tokenType);
+    this.tokenType = tokenType;
   }
 
   /**
-   * Set the value of the attribute.
+   * Set the value of the abstract syntax tree node
    *
-   * @param value The new value of the attribute
+   * @param value The new value of the abstract syntax tree node
    */
-  public void setAttributeValue(final int value)
+  public void setValue(final int value)
   {
-    attribute.setValue(value);
+    this.value = value;
   }
 
   /**
-   * Set the name of the attribute.
+   * Set the name of the abstract syntax tree node
    *
-   * @param name The new name of the attribute
+   * @param name The new name of the abstract syntax tree node
    */
-  public void setAttributeName(final String name)
+  public void setName(final String name)
   {
-    attribute.setName(name);
+    this.name = name;
   }
 
   /**
-   * Set the contained attribute's type to the provided {@link Class} object
+   * Set the contained type to the provided {@link Class} object
    *
    * @param type The {@link Class} object used to be contained within the
-   *             attribute
+   *             abstract syntax tree node
    */
-  public void setAttributeType(final Class<?> type)
+  public void setType(final Class<?> type)
   {
-    attribute.setType(type);
+    this.type = type;
+  }
+
+  /**
+   * Set the line number on which the abstract syntax tree node would reside
+   *
+   * @param lineNumber The line number of the of node
+   */
+  public void setLineNumber(final int lineNumber)
+  {
+    this.lineNumber = lineNumber;
   }
   /**
    * Get the token type of the contained attribute
@@ -175,42 +209,51 @@ public abstract class AbstractSyntaxTreeNode
    * @return The {@link TokenType} of the contained attribute
    *         (default is TokenType.BOOKKEEPING_ERROR)
    */
-  public TokenType getAttributeTokenType()
+  public final TokenType getTokenType()
   {
-    return attribute.getTokenType();
+    return tokenType;
   }
 
   /**
-   * Get the value of the contained attribute
+   * Get the value of the node
    *
-   * @return The integer value of the contained attribute
-   *         (default is Integer.MIN_VALUE)
+   * @return The integer value of the node (default is Integer.MIN_VALUE)000000
    */
-  public int getAttributeValue()
+  public final int getValue()
   {
-    return attribute.getValue();
+    return value;
   }
 
   /**
-   * Get the name of the contained attribute
+   * Get the name of the node
    *
-   * @return The string value of the contained attribute
-   *         (default is the empty string)
+   * @return The string value of the contained (default is the empty string)
    */
-  public String getAttributeName()
+  public final String getName()
   {
-    return attribute.getName();
+    return name;
   }
 
   /**
-   * Get the class type of the contained attribute
+   * Get the class type of the node
    *
    * @return The {@link Class} object that represents the
-   *         object type of the attribute (default is
+   *         object type of the node (default is
    *         the Void class)
    */
-  public Class<?> getAttributeType()
+  public final Class<?> getType()
   {
-    return attribute.getType();
+    return type;
+  }
+
+  /**
+   * Get the line number on which the abstract syntax tree node would
+   * reside.
+   *
+   * @return The line number of the abstract syntax tree node
+   */
+  public final int getLineNumber()
+  {
+    return lineNumber;
   }
 }

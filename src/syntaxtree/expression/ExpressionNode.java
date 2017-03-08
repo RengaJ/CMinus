@@ -18,6 +18,6 @@ public abstract class ExpressionNode extends AbstractSyntaxTreeNode
     {
         super();
 
-        setAttributeTokenType(tokenType);
+        setTokenType(tokenType);
     }
 }

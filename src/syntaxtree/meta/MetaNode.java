@@ -18,6 +18,6 @@ public abstract class MetaNode extends AbstractSyntaxTreeNode
   {
     super();
 
-    setAttributeTokenType(tokenType);
+    setTokenType(tokenType);
   }
 }
