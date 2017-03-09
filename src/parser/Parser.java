@@ -1,10 +1,17 @@
 package parser;
 
+import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
-import syntaxtree.expression.*;
-import syntaxtree.meta.*;
-import syntaxtree.statement.*;
-import tokens.*;
+import syntaxtree.expression.AssignExpressionNode;
+import syntaxtree.expression.ExpressionNode;
+import syntaxtree.expression.IDExpressionNode;
+import syntaxtree.meta.FunctionNode;
+import syntaxtree.meta.ParameterNode;
+import syntaxtree.statement.IfStatementNode;
+import syntaxtree.statement.ReturnStatementNode;
+import syntaxtree.statement.VarDeclarationStatementNode;
+import tokens.Token;
+import tokens.TokenType;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -49,580 +56,908 @@ public final class Parser
    */
   public AbstractSyntaxTreeNode parse(Deque<Token> tokenList)
   {
+    // Store the provided list of tokens
     this.tokenList = new ArrayDeque<>(tokenList);
 
-    return createSyntaxTree();
-  }
+    // Keep track of the first token in the list,
+    // and remove it from the list
+    currentToken = this.tokenList.pop();
 
-  private AbstractSyntaxTreeNode createSyntaxTree()
-  {
-    AbstractSyntaxTreeNode statement = null;
-
-    if (matchNext(TokenType.SPECIAL_RIGHT_BRACE))
-    {
-      return null;
-    }
-
-    currentToken = tokenList.pop();
-
-    while (statement == null &&
-           !matchCurrent(TokenType.BOOKKEEPING_END_OF_FILE) &&
-           !matchNext(TokenType.SPECIAL_RIGHT_BRACE))
-    {
-      statement = processStatement();
-    }
-
-    if (statement != null &&
-        !matchCurrent(TokenType.BOOKKEEPING_END_OF_FILE) &&
-        !matchCurrent(TokenType.SPECIAL_RIGHT_BRACE))
-    {
-      statement.setSibling(createSyntaxTree());
-    }
-    return statement;
+    return null;
+    // return createSyntaxTree();
   }
 
   private AbstractSyntaxTreeNode processStatement()
   {
     AbstractSyntaxTreeNode statement = null;
-
-    TokenType tokenType = currentToken.getType();
-    switch (tokenType)
+    switch (currentToken.getType())
     {
+      // If the current token is a type
+      // (int or void), process the type
+      // (no statement should be created)
       case RESERVED_INT:
-      {
-        identifierType = Integer.class;
-        currentToken = tokenList.pop();
-        break;
-      }
-
       case RESERVED_VOID:
       {
-        identifierType = Void.class;
-        currentToken = tokenList.pop();
+        // Set the current identifier type (if returns
+        // true, the current token will advance)
+        if (!setCurrentType(currentToken.getType()))
+        {
+          logSyntaxError();
+        }
         break;
       }
+
       case VARIABLE_IDENTIFIER:
       {
-        statement = processExpression();
-        break;
-      }
-
-      case RESERVED_RETURN:
-      {
-        statement = processReturnStatement();
-        break;
-      }
-
-      case RESERVED_IF:
-      {
-        statement = processIfStatement();
-        break;
-      }
-
-      case RESERVED_WHILE:
-      {
-        statement = processWhileStatement();
-        break;
-      }
-
-      case RESERVED_INPUT:
-      case RESERVED_OUTPUT:
-      {
-        break;
-      }
-      default:
-      {
+        statement = processID();
         break;
       }
     }
-
     return statement;
   }
 
-  private AbstractSyntaxTreeNode processWhileStatement()
+  /**
+   * Sets the current identifier type based on the provided
+   * token type.
+   *
+   * @param tokenType The token type used to identify what the
+   *                  current identifier type should be.
+   * @return An indicator if the identifier type was set
+   */
+  private boolean setCurrentType(final TokenType tokenType)
   {
-    WhileStatementNode whileStatement = new WhileStatementNode();
-    whileStatement.setLineNumber(currentToken.getLineNumber());
-    matchAndPop(TokenType.RESERVED_WHILE);
-
-    whileStatement.addChild(processParenthesis());
-    whileStatement.addChild(processStatementList());
-
-    if (matchCurrent(TokenType.SPECIAL_RIGHT_BRACE))
+    // If the provided token type is RESERVED_INT,
+    // set the identifier type to Integer.class
+    if (tokenType == TokenType.RESERVED_INT)
     {
-      matchAndPop(TokenType.SPECIAL_RIGHT_BRACE);
+      // Assign the identifier type to Integer.class
+      identifierType = Integer.class;
+
+      // Advance to the next token
+      matchAndPop(TokenType.RESERVED_INT);
+
+      // Indicate that the identifier was properly assigned
+      return true;
     }
-    else if (matchNext(TokenType.SPECIAL_RIGHT_BRACE))
+    // If the provided token type is RESERVED_VOID,
+    // set the identifier type to Void.class
+    else if (tokenType == TokenType.RESERVED_VOID)
     {
-      tokenList.pop();
+      // Assign the identifier type to Void.class
+      identifierType = Void.class;
 
-      currentToken = tokenList.peek();
+      // Advance to the next token
+      matchAndPop(TokenType.RESERVED_VOID);
+
+      // Indicate that the identifier was properly assigned
+      return true;
     }
-
-    return whileStatement;
+    // If the provided token type is neither RESERVED_INT
+    // nor RESERVED_VOID, do nothing and return false.
+    return false;
   }
 
   /**
-   * Resolves the ambiguity inherent with Identifier Tokens. This
-   * function will pick the correct node based on the next token
-   * in the token list
+   * Process an identifier token, which requires context
+   * to determine how to properly process the token
    *
-   * @return The appropriate AbstractSyntaxTreeNode based on the current
-   *         context.
+   * @return The resulting AST node, or {@code null} if
+   *         the processing of the token failed.
    */
-  private AbstractSyntaxTreeNode processExpression()
+  private AbstractSyntaxTreeNode processID()
   {
+    // Context is needed in order to properly process an identifier.
+    // Look at the next token for the necessary context
+    TokenType nextTokenType = tokenList.peek().getType();
+
     AbstractSyntaxTreeNode node = null;
-
-    // Take a peek at the next token in the list to get some context
-    TokenType nextType = tokenList.peek().getType();
-
-    switch (nextType)
+    // The valid tokens that can follow the VARIABLE_IDENTIFIER token are:
+    // --> Any expression operator (+, -, /, *, <, <=, >, >=, ==, !=)
+    // --> Comma (found in parameter and argument lists)
+    // --> Right Parenthesis (found at the end of parameter and argument lists)
+    // --> Left bracket (found in ID[] and ID[<expression>] statements)
+    // --> Right bracket (found at the end of ID[<expression>] statements)
+    // --> Left Parenthesis (found in function signatures and function calls)
+    // --> Semi-colon (found at the end of declaration or statements)
+    // --> Assignment operator (ID = <expression>;)
+    switch (nextTokenType)
     {
-
-      // If the next token is a semi-colon ( ; ), the current operation is
-      // a variable declaration ( var-declaration --> type-specifier ID; )
-      case SPECIAL_SEMICOLON:
-      {
-        // If there is no known type, create an IDExpressionNode
-        if (identifierType == null)
-        {
-          if (matchCurrent(TokenType.VARIABLE_IDENTIFIER))
-          {
-            IDExpressionNode idNode = new IDExpressionNode();
-            idNode.setName(currentToken.getLexeme());
-            idNode.setLineNumber(currentToken.getLineNumber());
-
-            node = idNode;
-
-            // Pop off the identifier
-            matchAndPop(TokenType.VARIABLE_IDENTIFIER);
-          }
-          else if (matchCurrent(TokenType.VARIABLE_NUMBER))
-          {
-            node = new ConstantExpressionNode();
-            node.setValue(Integer.parseInt(currentToken.getLexeme()));
-            node.setLineNumber(currentToken.getLineNumber());
-
-            matchAndPop(currentToken.getType());
-          }
-        }
-        // If there is an known type, create a VarDeclarationStatementNode
-        else
-        {
-          node = createVarDeclaration(currentToken);
-          tokenList.pop();
-        }
-        break;
-      }
-
-      // If the next token
-      case SPECIAL_LEFT_PAREN:
-      {
-        tokenList.pop();
-        if (identifierType == null)
-        {
-          // Create a function call
-        }
-        else
-        {
-          // Create a function structure
-          node = createFunction();
-        }
-        break;
-      }
-
-      case SPECIAL_LEFT_BRACKET:
-      {
-        break;
-      }
-
-      case SPECIAL_COMMA:
-      {
-        // This shouldn't happen
-        if (identifierType != null)
-        {
-          node = processParameter();
-        }
-        // This should happen
-        else
-        {
-          node = new IDExpressionNode();
-          node.setName(currentToken.getLexeme());
-          node.setLineNumber(currentToken.getLineNumber());
-          node.setTokenType(TokenType.VARIABLE_IDENTIFIER);
-        }
-        break;
-      }
-
+      // Expression Operators
       case SPECIAL_PLUS:
       case SPECIAL_MINUS:
       case SPECIAL_DIVIDE:
       case SPECIAL_TIMES:
-      case SPECIAL_GREATER_THAN:
-      case SPECIAL_GTE:
       case SPECIAL_LESS_THAN:
       case SPECIAL_LTE:
+      case SPECIAL_GREATER_THAN:
+      case SPECIAL_GTE:
       case SPECIAL_EQUAL:
       case SPECIAL_NOT_EQUAL:
       {
-        node = processSimpleExpression();
-        break;
-      }
+        // The start of an expression has been found, but it's not necessary
+        // to process the expression here. It is only necessary to process the
+        // identifier here.
 
-      case SPECIAL_ASSIGN:
-      {
-        node = processAssign();
-        break;
-      }
-
-      default:
-      {
-        logSyntaxError();
-      }
-    }
-
-    return node;
-  }
-
-  /**
-   * Create a VarDeclarationStatementNode, given a token
-   * @param token The token from which a {@link VarDeclarationStatementNode} is
-   *              to be created
-   *
-   * @return A {@link VarDeclarationStatementNode} that shares some attributes
-   *         from the provided Token object
-   */
-  private VarDeclarationStatementNode createVarDeclaration(final Token token)
-  {
-    // Create a new instance of the VarDeclarationStatementNode object
-    VarDeclarationStatementNode declaration = new VarDeclarationStatementNode();
-
-    // Set various attributes on the VarDeclarationNode for
-    // usage in the semantic analyzer
-    declaration.setName(token.getLexeme());
-    declaration.setType(identifierType);
-    declaration.setLineNumber(token.getLineNumber());
-
-    // Reset the identifier type for next time
-    identifierType = null;
-
-    // Return the newly created object
-    return declaration;
-  }
-
-  private FunctionNode createFunction()
-  {
-    FunctionNode function = new FunctionNode();
-    function.setName(currentToken.getLexeme());
-    function.setLineNumber(currentToken.getLineNumber());
-    function.setType(identifierType);
-    identifierType = null;
-
-    currentToken = tokenList.pop();
-
-    // Add parameter list
-    function.addChild(processParameterList());
-
-    if (!matchCurrent(TokenType.SPECIAL_RIGHT_PAREN))
-    {
-      logSyntaxError(currentToken, TokenType.SPECIAL_RIGHT_PAREN);
-    }
-    // Pop off the right parenthesis (hopefully)
-    currentToken = tokenList.pop();
-
-    // matchNext the left brace ( { )
-    if (!matchCurrent(TokenType.SPECIAL_LEFT_BRACE))
-    {
-      logSyntaxError(currentToken, TokenType.SPECIAL_LEFT_BRACE);
-    }
-
-    // Function body
-    function.addChild(processStatementList());
-
-    matchCurrent(TokenType.SPECIAL_RIGHT_BRACE);
-
-    currentToken = tokenList.peek();
-
-    return function;
-  }
-
-  private ParameterNode processParameterList()
-  {
-    ParameterNode parameter = processParameter();
-
-    if (matchCurrent(TokenType.SPECIAL_COMMA))
-    {
-      currentToken = tokenList.pop();
-      parameter.setSibling(processParameterList());
-    }
-
-    return parameter;
-  }
-
-  private ParameterNode processParameter()
-  {
-    ParameterNode parameter = null;
-
-    if (!matchCurrent(TokenType.RESERVED_INT) &&
-        !matchCurrent(TokenType.RESERVED_VOID))
-    {
-      tokenList.pop();
-
-      logSyntaxError(currentToken, "RESERVED_INT or RESERVED_VOID");
-    }
-    else
-    {
-      if (matchCurrent(TokenType.RESERVED_VOID))
-      {
-        parameter = new ParameterNode();
-        parameter.setLineNumber(currentToken.getLineNumber());
-        if (matchNext(TokenType.VARIABLE_IDENTIFIER))
+        // Test to see if the identifier type has been set
+        if (identifierType != null)
         {
-          matchAndPop(currentToken.getType());
-          parameter.setName(currentToken.getLexeme());
-        }
-      }
-      else
-      {
-        matchAndPop(currentToken.getType());
-        if (!matchCurrent(TokenType.VARIABLE_IDENTIFIER))
-        {
-          logSyntaxError(currentToken, TokenType.VARIABLE_IDENTIFIER);
+          // If the identifier type is not null, a syntax error
+          // has occurred. At statement such as:
+          //     int x + ...
+          // has been detected. This is not valid within the language,
+          // so an error must be reported.
+          logSyntaxError();
         }
         else
         {
-          parameter = new ParameterNode();
-          parameter.setName(currentToken.getLexeme());
-          parameter.setLineNumber(currentToken.getLineNumber());
-          parameter.setType(Integer.class);
+          // If the identifier type is null, we're currently looking at a
+          // statement such as:
+          //        x + ...
+          // At this point, just return the identifier node, as the full
+          // expression will be processed in another function.
+          node = processSimpleIdentifier();
         }
+        break;
       }
 
-      identifierType = null;
-      currentToken = tokenList.pop();
+      // Comma (Parameter and argument lists)
+      case SPECIAL_COMMA:
+      {
+        // Test to see if the identifier type has been set
+        if (identifierType != null)
+        {
+          // If the identifier type is not null, we're currently looking
+          // in a parameter list:
+          //
+          // ... ... (int x, int y)
+          node = processSimpleParameter();
+        }
+        else
+        {
+          // If the identifier type is null, we're currently looking in
+          // an argument list:
+          //
+          // ...(x, y)
+          node = processSimpleIdentifier();
+        }
+        break;
+      }
+
+      // Right Parenthesis (Indicates the end of a parameter or argument list)
+      case SPECIAL_RIGHT_PAREN:
+      {
+        // Test to see if the identifier type has been set
+        if (identifierType != null)
+        {
+          // If the identifier type is not null, we're currently looking at the
+          // end of a parameter list
+          node = processSimpleParameter();
+        }
+        else
+        {
+          // If the identifier is null, we're currently looking at the end of an
+          // argument list
+          node = processSimpleIdentifier();
+        }
+        break;
+      }
+
+      // Left bracket (Array-based identifiers / expression)
+      case SPECIAL_LEFT_BRACKET:
+      {
+        // Test to see if the identifier type has been set
+        if (identifierType != null)
+        {
+          // If the identifier type is not null, we're currently looking
+          // at a declaration (could be in a parameter list, but it's
+          // currently unknown).
+        }
+        else
+        {
+          // If the identifier type is null, we're currently looking at
+          // a usage of the variable. Special processing should take place
+          // here to ensure proper parsing:
+          //
+          // We could have ID[<number>], ID[ID], ID[ID[...]] or even ID[x + y]
+        }
+        break;
+      }
+
+      case SPECIAL_RIGHT_BRACKET:
+      {
+        // Test to see if the identifier type has been set
+        if (identifierType != null)
+        {
+          // If the identifier type is not null, a syntax error has occured. This
+          // condition means we have discovered a statement such as:
+          //    ID[int ID]
+          // This is not syntactically valid, and must be reported.
+          logSyntaxError();
+        }
+        else
+        {
+          // If the identifier type is null, we're probably looking at the end of
+          // an expression
+          node = processSimpleIdentifier();
+        }
+        break;
+      }
+
+      // Left Parenthesis (Function Signature or Call)
+      case SPECIAL_LEFT_PAREN:
+      {
+        // Test to see if the identifier type has been set
+        if (identifierType != null)
+        {
+          // If the identifier is not null, we're currently looking
+          // at a function signature.
+          node = processFunction();
+        }
+        else
+        {
+          // If the identifier type is null, we're currently looking
+          // at a function call
+        }
+        break;
+      }
+
+      // Semi-colon (Variable declaration or statement termination)
+      case SPECIAL_SEMICOLON:
+      {
+        // Test to see if the identifier type has bene set
+        if (identifierType != null)
+        {
+          // If the identifier is not null, we're currently looking
+          // at a variable declaration
+          node = processSimpleDeclaration();
+        }
+        else
+        {
+          // If the identifier is null, we're currently looking at
+          // the end of a statement
+          node = processSimpleIdentifier();
+        }
+        break;
+      }
+
+      // Assignment operator (used to begin assigment operations)
+      case SPECIAL_ASSIGN:
+      {
+        // Test to see if the identifier type has been set
+        if (identifierType != null)
+        {
+          // If the identifier type is not null, a syntax error has occurred.
+          // Variables cannot be defined and assigned to in the same
+          // statement. Report that an error occurred.
+          logSyntaxError();
+        }
+        else
+        {
+          // If the identifier is null, we're currently looking at an
+          // assignment statement.
+          node = processAssignment();
+        }
+        break;
+      }
+
+      // If none of the above token types were found, log a syntax error,
+      // as it's possible that the identifier was improperly provided
+      default:
+      {
+        logSyntaxError();
+        break;
+      }
     }
-
-    if (parameter != null)
-    {
-      parameter.setTokenType(TokenType.VARIABLE_IDENTIFIER);
-    }
-    return parameter;
-  }
-
-  private ReturnStatementNode processReturnStatement()
-  {
-    ReturnStatementNode returnStatement = new ReturnStatementNode();
-    returnStatement.setLineNumber(currentToken.getLineNumber());
-
-    // Pop off the RESERVED_RETURN token
-    matchAndPop(currentToken.getType());
-    if (!matchCurrent(TokenType.SPECIAL_SEMICOLON))
-    {
-      returnStatement.addChild(processExpression());
-
-      matchAndPop(TokenType.SPECIAL_SEMICOLON);
-    }
-
-    return returnStatement;
+    return node;
   }
 
   /**
-   * This function processes the IfToken detected from
-   * the queue. The current token is the detected IfToken.
+   * Create a simple (non-array) parameter that corresponds to
+   * the current identifier.
    *
-   * @return The complete if-statement node
+   * @return The created simple parameter node
    */
-  private IfStatementNode processIfStatement()
+  private ParameterNode processSimpleParameter()
   {
-    IfStatementNode ifStatement = new IfStatementNode();
-    ifStatement.setLineNumber(currentToken.getLineNumber());
+    // Create the parameter node
+    ParameterNode parameterNode = new ParameterNode();
 
-    matchAndPop(TokenType.RESERVED_IF);
+    // Fill out the node with as much information as possible:
+    // > The name of the node will be the name of the identifier being assigned
+    // > The line number of the node
+    // > The token type will be VARIABLE_IDENTIFIER
+    // > The node type will be the current identifier type
+    parameterNode.setName      (currentToken.getLexeme());
+    parameterNode.setLineNumber(currentToken.getLineNumber());
+    parameterNode.setTokenType (TokenType.VARIABLE_IDENTIFIER);
+    parameterNode.setType      (identifierType);
 
-    // Make sure the next token is the left parenthesis
-    ifStatement.addChild(processParenthesis());
+    // Reset the identifier type, since it's no longer valid
+    identifierType = null;
 
-    // Check to see if multiple statements will be added, or if
-    // only a single statement should be processed:
-    // Multiple statements:
-    //     if (<condition>) {
-    //        <statement 1>
-    //        <statement 2>
-    //     }
-    // Single statement
-    //     if (<condition>) <statement>
-    ifStatement.addChild(processStatementList());
+    // Advance the current token to ensure that processing continues smoothly
+    matchAndPop(TokenType.VARIABLE_IDENTIFIER);
 
-    if (matchCurrent(TokenType.SPECIAL_RIGHT_BRACE))
-    {
-      matchAndPop(TokenType.SPECIAL_RIGHT_BRACE);
-    }
-
-    // Check to see if there is an else keyword here
-    if (matchCurrent(TokenType.RESERVED_ELSE))
-    {
-      // Pop off the ELSE token, and check for a function body start ( { )
-      matchAndPop(TokenType.RESERVED_ELSE);
-
-      ifStatement.addChild(processStatementList());
-
-      if (matchCurrent(TokenType.SPECIAL_RIGHT_BRACE))
-      {
-        matchAndPop(TokenType.SPECIAL_RIGHT_BRACE);
-      }
-    }
-
-    // The if-statement is now complete
-    return ifStatement;
+    // There's nothing left to assign to this node, so return it now
+    return parameterNode;
   }
 
-  private AbstractSyntaxTreeNode processStatementList()
+  /**
+   * Create a simple (non-array) identifier declaration that
+   * corresponds to the current identifier.
+   *
+   * @return The created identifier declaration node
+   */
+  private VarDeclarationStatementNode processSimpleDeclaration()
   {
-    AbstractSyntaxTreeNode node;
-    if (matchCurrent(TokenType.SPECIAL_LEFT_BRACE))
-    {
-      // Perform multiple statement processing
-      node = createSyntaxTree();
-    }
-    else
-    {
-      // Perform single statement processing
-      node = processStatement();
-    }
+    // Create the variable declaration statement node
+    VarDeclarationStatementNode varDeclaration = new VarDeclarationStatementNode();
 
-    return node;
+    // Fill out the node with as much information as possible:
+    // > The name of the node will be the name of the identifier being assigned
+    // > The line number of the node
+    // > The token type will be VARIABLE_IDENTIFIER
+    // > The node type will be the current identifier type
+    varDeclaration.setName      (currentToken.getLexeme());
+    varDeclaration.setLineNumber(currentToken.getLineNumber());
+    varDeclaration.setTokenType (TokenType.VARIABLE_IDENTIFIER);
+    varDeclaration.setType      (identifierType);
+
+    // Reset the identifier type, since it's no longer valid
+    identifierType = null;
+
+    // Advance the current token to ensure that processing continues smoothly
+    matchAndPop(TokenType.VARIABLE_IDENTIFIER);
+
+    // There's nothing left to assign to this node, so return it now
+    return varDeclaration;
   }
 
-  private ExpressionNode processSimpleExpression()
+  /**
+   * Create a simple (non-array) identifier that corresponds
+   * to the current identifier.
+   *
+   * @return The created identifier node
+   */
+  private IDExpressionNode processSimpleIdentifier()
   {
-    ExpressionNode simpleExp = processAdditiveExpression();
+    // Create the identifier expression node
+    IDExpressionNode idExpression = new IDExpressionNode();
 
-    // Is the current token a relational operator?
-    if (matchCurrent(TokenType.SPECIAL_EQUAL) ||
-        matchCurrent(TokenType.SPECIAL_NOT_EQUAL) ||
-        matchCurrent(TokenType.SPECIAL_GREATER_THAN) ||
-        matchCurrent(TokenType.SPECIAL_GTE) ||
-        matchCurrent(TokenType.SPECIAL_LESS_THAN) ||
-        matchCurrent(TokenType.SPECIAL_LTE))
-    {
-      OperationExpressionNode opNode =
-          new OperationExpressionNode(currentToken.getType());
-      opNode.setLineNumber(currentToken.getLineNumber());
-      opNode.setType(Boolean.class);
-      opNode.addChild(simpleExp);
+    // Fill out the node with as much information as possible:
+    // > The name of the node will be the name of the identifier being assigned
+    // > The line number of the node
+    // > The token type will be VARIABLE_IDENTIFIER
+    idExpression.setName      (currentToken.getLexeme());
+    idExpression.setLineNumber(currentToken.getLineNumber());
+    idExpression.setTokenType (TokenType.VARIABLE_IDENTIFIER);
 
-      // Change the orientation of the hierarchy
-      simpleExp = opNode;
+    // Advance the current token to ensure that processing continues smoothly
+    matchAndPop(TokenType.VARIABLE_IDENTIFIER);
 
-      matchAndPop(currentToken.getType());
-
-      simpleExp.addChild(processAdditiveExpression());
-    }
-
-    return simpleExp;
+    // There's nothing left to assign to this node, so return it now
+    return idExpression;
   }
 
-  private ExpressionNode processAdditiveExpression()
+  /**
+   * Create a FunctionNode that contains the signature and the function body.
+   *
+   * @return The processed function definition
+   */
+  private FunctionNode processFunction()
   {
-    ExpressionNode term = processTerm();
+    // Create the function node
+    FunctionNode functionNode = new FunctionNode();
 
-    return term;
-  }
+    // Fill out the node with as much information as possible:
+    // > The name of the node will be the name of the identifier being assigned
+    // > The line number of the node
+    // > The token type will be VARIABLE_IDENTIFIER
+    // > The node type will be the current identifier type
+    functionNode.setName      (currentToken.getLexeme());
+    functionNode.setLineNumber(currentToken.getLineNumber());
+    functionNode.setTokenType (TokenType.VARIABLE_IDENTIFIER);
+    functionNode.setType      (identifierType);
 
-  private ExpressionNode processTerm()
-  {
-    ExpressionNode factor = processFactor();
+    // Reset the identifier type, since it's no longer valid
+    identifierType = null;
 
-    if (matchCurrent(TokenType.SPECIAL_DIVIDE) ||
-        matchCurrent(TokenType.SPECIAL_TIMES))
-    {
-      //
-    }
+    // Advance the current token to ensure that processing continues smoothly
+    matchAndPop(TokenType.VARIABLE_IDENTIFIER);
 
-    return factor;
-  }
+    // The completion of the function requires two more steps:
+    // 1. Parsing of the parameter list
+    // 2. Parsing of the function body
 
-  private ExpressionNode processFactor()
-  {
-    ExpressionNode node;
-
-    if (matchCurrent(TokenType.VARIABLE_NUMBER))
-    {
-      node = new ConstantExpressionNode();
-      node.setValue(Integer.parseInt(currentToken.getLexeme()));
-      node.setLineNumber(currentToken.getLineNumber());
-
-      matchAndPop(currentToken.getType());
-    }
-    else if (matchCurrent(TokenType.SPECIAL_LEFT_PAREN))
-    {
-      node = processParenthesis();
-    }
-    else
-    {
-      node = new IDExpressionNode();
-      node.setName(currentToken.getLexeme());
-      node.setLineNumber(currentToken.getLineNumber());
-      node.setTokenType(TokenType.VARIABLE_IDENTIFIER);
-
-      matchAndPop(currentToken.getType());
-    }
-    return node;
-  }
-
-  private AssignExpressionNode processAssign()
-  {
-    AssignExpressionNode assign = new AssignExpressionNode();
-    assign.setName(currentToken.getLexeme());
-    assign.setLineNumber(currentToken.getLineNumber());
-
-    // Pop off the = symbol from the queue
-    tokenList.pop();
-
-    // Assign the new top as the current token
-    matchAndPop(currentToken.getType());
-    assign.addChild(processExpression());
-
-    return assign;
-  }
-
-  private ExpressionNode processParenthesis()
-  {
+    // To complete step 1, the left parenthesis must be matched, followed by
+    // the assembly of the parameter list as a series of sibling nodes, followed
+    // by the matching of the right parenthesis.
     matchAndPop(TokenType.SPECIAL_LEFT_PAREN);
-    ExpressionNode node = (ExpressionNode)processExpression();
+    functionNode.addChild(processParameterList());
     matchAndPop(TokenType.SPECIAL_RIGHT_PAREN);
 
-    return node;
+    // To complete step 2, the left brace must be matched. Following this, all of the
+    // subsequent statements must be processed until the right brace has been detected.
+    matchAndPop(TokenType.SPECIAL_LEFT_BRACE);
+    // TODO: IMPLEMENT STATEMENT LIST PROCESSING
+
+    // The function node is now complete, and it should be returned
+    return functionNode;
   }
 
   /**
+   * Create an AssignExpressionNode that corresponds to the
+   * current context
    *
-   * @param expected The expected token type
-   *
-   * @return True if the current and expected token types matchNext, otherwise False
+   * @return The processed assignment statement
    */
-  private boolean matchNext(final TokenType expected)
+  private AssignExpressionNode processAssignment()
   {
-    return tokenList.peek().getType() == expected;
+    // Create the assignment node
+    AssignExpressionNode assignNode = new AssignExpressionNode();
+
+    // Fill out the node with as much information as possible:
+    // > The name of the node will be the name of the identifier being assigned
+    // > The line number of the node
+    // > The token type will be SPECIAL_ASSIGN
+    assignNode.setName      (currentToken.getLexeme());
+    assignNode.setLineNumber(currentToken.getLineNumber());
+    assignNode.setTokenType (TokenType.SPECIAL_ASSIGN);
+
+    // Currently the top of the token list is the assignment operator (=). This
+    // needs to be advanced and assigned to the current token so that the next
+    // operation is known:
+    //
+    //  1. ID  <-- current token        x ID
+    //  2.  =  <-- current head    ==>  x  =
+    //  3. ID                             ID <-- new current token
+    //  4.  +                              + <-- new head
+    // (the x prefix indicates that the token was removed)
+
+    // Match the current ID
+    matchAndPop(TokenType.VARIABLE_IDENTIFIER);
+
+    // Match the assign context
+    matchAndPop(TokenType.SPECIAL_ASSIGN);
+
+    // Create an expression and assign it as the assignment node's child
+    // TODO: IMPLEMENT EXPRESSION FUNCTIONALITY
+
+    return assignNode;
   }
 
   /**
-   * Function used to matchNext the current token with an expected type.
+   * Process the list of parameters for a function signature.
    *
-   * @param expected The expected token type
-   * @return True if the true current type and the expected types matchNext, otherwise
-   *         False
+   * @return The ParameterNode that marks the beginning of a
+   *         list of ParameterNodes contained in a function
+   *         signature.
    */
-  private boolean matchCurrent(final TokenType expected)
+  private ParameterNode processParameterList()
   {
-    return currentToken.getType() == expected;
+    // Initialize the parameter node to be null, in case
+    // processing starts to go bad
+    ParameterNode parameterNode = null;
+
+    // Process until either a comma or a right parenthesis is found.
+    // These tokens indicate that (hopefully) a ParameterNode has been
+    // properly parsed
+    while (!matchCurrent(TokenType.SPECIAL_COMMA) ||
+           !matchCurrent(TokenType.SPECIAL_RIGHT_PAREN))
+    {
+      // Get the statement returned from the processStatement function.
+      // It is expected that the first call will return null, as it will
+      // perform the type processing
+      AbstractSyntaxTreeNode statement = processStatement();
+
+      // If the returned (non-null) statement is actually a ParameterNode,
+      // keep track of the newly obtained parameter
+      if ((statement != null) &&
+          (statement.getNodeType() == ASTNodeType.META_PARAMETER))
+      {
+        parameterNode = (ParameterNode)statement;
+      }
+    }
+
+    // If a parameter was not found in the list, a syntax error should be
+    // reported and processing should be terminated.
+    if (parameterNode == null)
+    {
+      logSyntaxError();
+
+      return null;
+    }
+
+    // If the current token is a comma, the list is not finished,
+    // so continue the list as a sibling for the current parameter
+    if (matchCurrent(TokenType.SPECIAL_COMMA))
+    {
+      parameterNode.setSibling(processParameterList());
+    }
+
+    return parameterNode;
   }
 
+//  private AbstractSyntaxTreeNode createSyntaxTree()
+//  {
+//    AbstractSyntaxTreeNode statement = null;
+//
+//    currentToken = tokenList.pop();
+//
+//    while (statement == null &&
+//        !match(currentToken.getType(), TokenType.BOOKKEEPING_END_OF_FILE) &&
+//        !match(currentToken.getType(), TokenType.SPECIAL_RIGHT_BRACE))
+//    {
+//      TokenType tokenType = currentToken.getType();
+//      switch (tokenType)
+//      {
+//        case RESERVED_INT:
+//        {
+//          identifierType = Integer.class;
+//          currentToken = tokenList.pop();
+//          break;
+//        }
+//
+//        case RESERVED_VOID:
+//        {
+//          identifierType = Void.class;
+//          currentToken = tokenList.pop();
+//          break;
+//        }
+//        case VARIABLE_IDENTIFIER:
+//        {
+//          statement = resolveIDAmbiguity();
+//          break;
+//        }
+//
+//        case RESERVED_RETURN:
+//        {
+//          statement = processReturnStatement();
+//          break;
+//        }
+//
+//        case RESERVED_IF:
+//        {
+//          statement = processIfStatement();
+//          break;
+//        }
+//
+//        case RESERVED_WHILE:
+//        {
+//
+//        }
+//
+//        case RESERVED_INPUT:
+//        case RESERVED_OUTPUT:
+//        {
+//          break;
+//        }
+//        default:
+//        {
+//          break;
+//        }
+//      }
+//    }
+//
+//    if (statement != null &&
+//        !match(currentToken.getType(), TokenType.BOOKKEEPING_END_OF_FILE))
+//    {
+//      statement.setSibling(createSyntaxTree());
+//    }
+//    return statement;
+//  }
+//
+//  /**
+//   * Resolves the ambiguity inherent with Identifier Tokens. This
+//   * function will pick the correct node based on the next token
+//   * in the token list
+//   *
+//   * @return The appropriate AbstractSyntaxTreeNode based on the current
+//   *         context.
+//   */
+//  private AbstractSyntaxTreeNode resolveIDAmbiguity()
+//  {
+//    // Take a peek at the next token in the list to get some context
+//    Token nextToken = tokenList.peek();
+//
+//    // Extract the token type so that
+//    TokenType type = nextToken.getType();
+//
+//    AbstractSyntaxTreeNode node = null;
+//
+//    switch (type)
+//    {
+//
+//      // If the next token is a semi-colon ( ; ), the current operation is
+//      // a variable declaration ( var-declaration --> type-specifier ID; )
+//      case SPECIAL_SEMICOLON:
+//      {
+//        // If there is no known type, create an IDExpressionNode
+//        if (identifierType == null)
+//        {
+//          IDExpressionNode idNode = new IDExpressionNode();
+//          idNode.setName(currentToken.getLexeme());
+//          idNode.setLineNumber(currentToken.getLineNumber());
+//
+//          node = idNode;
+//        }
+//        // If there is an known type, create a VarDeclarationStatementNode
+//        else
+//        {
+//          node = createVarDeclaration(currentToken);
+//          tokenList.pop();
+//        }
+//        break;
+//      }
+//
+//      // If the next token
+//      case SPECIAL_LEFT_PAREN:
+//      {
+//        tokenList.pop();
+//        if (identifierType == null)
+//        {
+//          // Create a function call
+//        }
+//        else
+//        {
+//          // Create a function structure
+//          node = createFunction();
+//        }
+//        break;
+//      }
+//
+//      case SPECIAL_LEFT_BRACKET:
+//      {
+//        break;
+//      }
+//
+//      case SPECIAL_COMMA:
+//      {
+//        break;
+//      }
+//
+//      case SPECIAL_PLUS:
+//      case SPECIAL_MINUS:
+//      case SPECIAL_DIVIDE:
+//      case SPECIAL_TIMES:
+//      case SPECIAL_GREATER_THAN:
+//      case SPECIAL_GTE:
+//      case SPECIAL_LESS_THAN:
+//      case SPECIAL_LTE:
+//      {
+//        break;
+//      }
+//
+//      default:
+//      {
+//        logSyntaxError();
+//      }
+//    }
+//    return node;
+//  }
+//
+//  /**
+//   * Create a VarDeclarationStatementNode, given a token
+//   * @param token The token from which a {@link VarDeclarationStatementNode} is
+//   *              to be created
+//   *
+//   * @return A {@link VarDeclarationStatementNode} that shares some attributes
+//   *         from the provided Token object
+//   */
+//  private VarDeclarationStatementNode createVarDeclaration(final Token token)
+//  {
+//    // Create a new instance of the VarDeclarationStatementNode object
+//    VarDeclarationStatementNode declaration = new VarDeclarationStatementNode();
+//
+//    // Set various attributes on the VarDeclarationNode for
+//    // usage in the semantic analyzer
+//    declaration.setName(token.getLexeme());
+//    declaration.setType(identifierType);
+//    declaration.setLineNumber(token.getLineNumber());
+//
+//    // Reset the identifier type for next time
+//    identifierType = null;
+//
+//    // Return the newly created object
+//    return declaration;
+//  }
+//
+//  private FunctionNode createFunction()
+//  {
+//    FunctionNode function = new FunctionNode();
+//    function.setName(currentToken.getLexeme());
+//    function.setLineNumber(currentToken.getLineNumber());
+//    function.setType(identifierType);
+//    identifierType = null;
+//
+//    currentToken = tokenList.pop();
+//
+//    // Add parameter list
+//    function.addChild(processParameterList());
+//
+//    if (!match(currentToken.getType(), TokenType.SPECIAL_RIGHT_PAREN))
+//    {
+//      logSyntaxError(currentToken, TokenType.SPECIAL_RIGHT_PAREN);
+//    }
+//    // Pop off the right parenthesis (hopefully)
+//    currentToken = tokenList.pop();
+//
+//    // match the left brace ( { )
+//    if (!match(currentToken.getType(), TokenType.SPECIAL_LEFT_BRACE))
+//    {
+//      logSyntaxError(currentToken, TokenType.SPECIAL_LEFT_BRACE);
+//    }
+//
+//    // Function body
+//    function.addChild(createSyntaxTree());
+//
+//    return function;
+//  }
+//
+//  private ParameterNode processParameterList()
+//  {
+//    ParameterNode parameter = processParameter();
+//
+//    if (match(currentToken.getType(), TokenType.SPECIAL_COMMA))
+//    {
+//      currentToken = tokenList.pop();
+//      parameter.setSibling(processParameterList());
+//    }
+//
+//    return parameter;
+//  }
+//
+//  private ParameterNode processParameter()
+//  {
+//    ParameterNode parameter = null;
+//
+//    TokenType currentType = currentToken.getType();
+//
+//    if (!match(currentType, TokenType.RESERVED_INT) &&
+//        !match(currentType, TokenType.RESERVED_VOID))
+//    {
+//      tokenList.pop();
+//
+//      logSyntaxError(currentToken, "RESERVED_INT or RESERVED_VOID");
+//    }
+//    else
+//    {
+//      if (match(currentType, TokenType.RESERVED_VOID))
+//      {
+//        parameter = new ParameterNode();
+//        parameter.setLineNumber(currentToken.getLineNumber());
+//      }
+//      else
+//      {
+//        currentToken = tokenList.pop();
+//        if (!match(currentToken.getType(), TokenType.VARIABLE_IDENTIFIER))
+//        {
+//          logSyntaxError(currentToken, TokenType.VARIABLE_IDENTIFIER);
+//        }
+//        else
+//        {
+//          parameter = new ParameterNode();
+//          parameter.setName(currentToken.getLexeme());
+//          parameter.setLineNumber(currentToken.getLineNumber());
+//          parameter.setType(Integer.class);
+//        }
+//      }
+//      currentToken = tokenList.pop();
+//    }
+//
+//    return parameter;
+//  }
+//
+//  private ReturnStatementNode processReturnStatement()
+//  {
+//    ReturnStatementNode returnStatement = new ReturnStatementNode();
+//    returnStatement.setLineNumber(currentToken.getLineNumber());
+//
+//    currentToken = tokenList.pop();
+//    if (!match(currentToken.getType(), TokenType.SPECIAL_SEMICOLON))
+//    {
+//      returnStatement.addChild(processExpression());
+//    }
+//
+//    return returnStatement;
+//  }
+//
+//  /**
+//   * This function processes the IfToken detected from
+//   * the queue. The current token is the detected IfToken.
+//   *
+//   * @return The complete if-statement node
+//   */
+//  private IfStatementNode processIfStatement()
+//  {
+//    IfStatementNode ifStatement = new IfStatementNode();
+//    ifStatement.setLineNumber(currentToken.getLineNumber());
+//
+//    // Make sure the next token is the left parenthesis
+//    matchAndPop(TokenType.SPECIAL_LEFT_PAREN);
+//
+//    ifStatement.addChild(processExpression());
+//
+//    // Make sure the next token is the right parenthesis
+//    matchAndPop(TokenType.SPECIAL_RIGHT_PAREN);
+//
+//    // Check to see if multiple statements will be added, or if
+//    // only a single statment should be processed:
+//    // Multiple statements:
+//    //     if (<condition>) {
+//    //        <statement 1>
+//    //        <statement 2>
+//    //     }
+//    // Single statement
+//    //     if (<condition>) <statement>
+//    if (match(currentToken.getType(), TokenType.SPECIAL_LEFT_BRACE))
+//    {
+//      // Perform multiple statement processing
+//      ifStatement.addChild(createSyntaxTree());
+//
+//      // Ensure that the next token is a closing brace
+//      matchAndPop(TokenType.SPECIAL_RIGHT_BRACE);
+//    }
+//    else
+//    {
+//      // Perform single statement processing
+//    }
+//
+//    // Check to see if there is an else keyword here
+//    if (match(currentToken.getType(), TokenType.RESERVED_ELSE))
+//    {
+//      // Pop off the ELSE token, and check for a function body start ( { )
+//      currentToken = tokenList.pop();
+//      if (match(currentToken.getType(), TokenType.SPECIAL_LEFT_BRACE))
+//      {
+//        // Perform multiple statement processing
+//        ifStatement.addChild(createSyntaxTree());
+//
+//        // Ensure that the next token is a closing brace
+//        matchAndPop(TokenType.SPECIAL_RIGHT_BRACE);
+//      }
+//      else
+//      {
+//        // Perform single statement processing
+//      }
+//    }
+//
+//    // The if-statement is now complete
+//    return ifStatement;
+//  }
+//
+//  private ExpressionNode processExpression()
+//  {
+//    return null;
+//  }
+//
+//  private ExpressionNode processTerm()
+//  {
+//    return null;
+//  }
+//
+//  private ExpressionNode processFactor()
+//  {
+//    return null;
+//  }
+//
+//  /**
+//   *
+//   * @param current The current token type
+//   * @param expected The expected token type
+//   *
+//   * @return True if the current and expected token types match, otherwise False
+//   */
+//  private boolean match(final TokenType current, final TokenType expected)
+//  {
+//    return current == expected;
+//  }
+//
+
   /**
-   * Attempt to matchNext the current token type with the expected token
-   * type. If a matchNext occurs, the token list will be moved forward by
-   * one token. If a matchNext fails, a syntax error will be reported.
+   * Attempt to match the current token type with the expected token
+   * type. If a match occurs, the token list will be moved forward by
+   * one token. If a match fails, a syntax error will be reported.
    *
    * @param expected The expected token type
    */
@@ -638,14 +973,24 @@ public final class Parser
     }
   }
 
+  /**
+   * Match the current token's type with an expected type
+   * @param expected The expected token type
+   * @return True if the current token's type matches the expected type
+   */
+  private boolean matchCurrent(final TokenType expected)
+  {
+    return currentToken.getType() == expected;
+  }
+
   private void logSyntaxError(final Token token, final TokenType expected)
   {
-    logSyntaxError(token, expected.toString());
+    logSyntaxError(token, String.format("Expected %s", expected.toString()));
   }
 
   private void logSyntaxError(final Token token, final String expected)
   {
-    System.err.printf("SYNTAX ERROR (Line %d) - Unexpected Token %s, Expected %s\n",
+    System.err.printf("SYNTAX ERROR (Line %d) - Unexpected Token %s; %s\n",
         token.getLineNumber(), token.getType().toString(), expected);
   }
 
