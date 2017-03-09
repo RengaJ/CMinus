@@ -57,7 +57,6 @@ public final class Parser
    */
   public AbstractSyntaxTreeNode parse(Deque<Token> tokenList)
   {
-    // TODO: Complete Implementation
     this.tokenList = new ArrayDeque<>(tokenList);
 
     return createSyntaxTree();
@@ -71,64 +70,74 @@ public final class Parser
 
     while (statement == null &&
            !matchCurrent(TokenType.BOOKKEEPING_END_OF_FILE) &&
-           !matchCurrent(TokenType.SPECIAL_RIGHT_BRACE))
+           !matchNext(TokenType.SPECIAL_RIGHT_BRACE))
     {
-      TokenType tokenType = currentToken.getType();
-      switch (tokenType)
-      {
-        case RESERVED_INT:
-        {
-          identifierType = Integer.class;
-          currentToken = tokenList.pop();
-          break;
-        }
-
-        case RESERVED_VOID:
-        {
-          identifierType = Void.class;
-          currentToken = tokenList.pop();
-          break;
-        }
-        case VARIABLE_IDENTIFIER:
-        {
-          statement = processExpression();
-          break;
-        }
-
-        case RESERVED_RETURN:
-        {
-          statement = processReturnStatement();
-          break;
-        }
-
-        case RESERVED_IF:
-        {
-          statement = processIfStatement();
-          break;
-        }
-
-        case RESERVED_WHILE:
-        {
-
-        }
-
-        case RESERVED_INPUT:
-        case RESERVED_OUTPUT:
-        {
-          break;
-        }
-        default:
-        {
-          break;
-        }
-      }
+      statement = processStatement();
     }
 
     if (statement != null &&
-        !matchCurrent(TokenType.BOOKKEEPING_END_OF_FILE))
+        !matchCurrent(TokenType.BOOKKEEPING_END_OF_FILE) &&
+        !matchCurrent(TokenType.SPECIAL_RIGHT_BRACE))
     {
       statement.setSibling(createSyntaxTree());
     }
+    return statement;
+  }
+
+  private AbstractSyntaxTreeNode processStatement()
+  {
+    AbstractSyntaxTreeNode statement = null;
+
+    TokenType tokenType = currentToken.getType();
+    switch (tokenType)
+    {
+      case RESERVED_INT:
+      {
+        identifierType = Integer.class;
+        currentToken = tokenList.pop();
+        break;
+      }
+
+      case RESERVED_VOID:
+      {
+        identifierType = Void.class;
+        currentToken = tokenList.pop();
+        break;
+      }
+      case VARIABLE_IDENTIFIER:
+      {
+        statement = processExpression();
+        break;
+      }
+
+      case RESERVED_RETURN:
+      {
+        statement = processReturnStatement();
+        break;
+      }
+
+      case RESERVED_IF:
+      {
+        statement = processIfStatement();
+        break;
+      }
+
+      case RESERVED_WHILE:
+      {
+
+      }
+
+      case RESERVED_INPUT:
+      case RESERVED_OUTPUT:
+      {
+        break;
+      }
+      default:
+      {
+        break;
+      }
+    }
+
     return statement;
   }
 
@@ -164,7 +173,7 @@ public final class Parser
           node = idNode;
 
           // Pop off the identifier
-          tokenList.pop();
+          matchAndPop(TokenType.VARIABLE_IDENTIFIER);
         }
         // If there is an known type, create a VarDeclarationStatementNode
         else
@@ -240,6 +249,7 @@ public final class Parser
         logSyntaxError();
       }
     }
+
     return node;
   }
 
@@ -296,7 +306,11 @@ public final class Parser
     }
 
     // Function body
-    function.addChild(createSyntaxTree());
+    function.addChild(processStatementList());
+
+    matchCurrent(TokenType.SPECIAL_RIGHT_BRACE);
+
+    currentToken = tokenList.peek();
 
     return function;
   }
@@ -329,7 +343,6 @@ public final class Parser
     {
       if (matchCurrent(TokenType.RESERVED_VOID))
       {
-        identifierType = Void.class;
         parameter = new ParameterNode();
         parameter.setLineNumber(currentToken.getLineNumber());
         if (matchNext(TokenType.VARIABLE_IDENTIFIER))
@@ -340,7 +353,6 @@ public final class Parser
       }
       else
       {
-        identifierType = Integer.class;
         matchAndPop(currentToken.getType());
         if (!matchCurrent(TokenType.VARIABLE_IDENTIFIER))
         {
@@ -354,6 +366,8 @@ public final class Parser
           parameter.setType(Integer.class);
         }
       }
+
+      identifierType = null;
       currentToken = tokenList.pop();
     }
 
@@ -374,6 +388,8 @@ public final class Parser
     if (!matchCurrent(TokenType.SPECIAL_SEMICOLON))
     {
       returnStatement.addChild(processExpression());
+
+      matchAndPop(TokenType.SPECIAL_SEMICOLON);
     }
 
     return returnStatement;
@@ -390,8 +406,10 @@ public final class Parser
     IfStatementNode ifStatement = new IfStatementNode();
     ifStatement.setLineNumber(currentToken.getLineNumber());
 
+    matchAndPop(TokenType.RESERVED_IF);
+
     // Make sure the next token is the left parenthesis
-    processParenthesis();
+    ifStatement.addChild(processParenthesis());
 
     // Check to see if multiple statements will be added, or if
     // only a single statement should be processed:
@@ -402,17 +420,11 @@ public final class Parser
     //     }
     // Single statement
     //     if (<condition>) <statement>
-    if (matchCurrent(TokenType.SPECIAL_LEFT_BRACE))
-    {
-      // Perform multiple statement processing
-      ifStatement.addChild(createSyntaxTree());
+    ifStatement.addChild(processStatementList());
 
-      // Ensure that the next token is a closing brace
-      matchAndPop(TokenType.SPECIAL_RIGHT_BRACE);
-    }
-    else
+    if (matchCurrent(TokenType.SPECIAL_RIGHT_BRACE))
     {
-      // Perform single statement processing
+      matchAndPop(TokenType.SPECIAL_RIGHT_BRACE);
     }
 
     // Check to see if there is an else keyword here
@@ -421,22 +433,33 @@ public final class Parser
       // Pop off the ELSE token, and check for a function body start ( { )
       matchAndPop(TokenType.RESERVED_ELSE);
 
-      if (matchCurrent(TokenType.SPECIAL_LEFT_BRACE))
-      {
-        // Perform multiple statement processing
-        ifStatement.addChild(createSyntaxTree());
+      ifStatement.addChild(processStatementList());
 
-        // Ensure that the next token is a closing brace
-        matchAndPop(TokenType.SPECIAL_RIGHT_BRACE);
-      }
-      else
+      if (matchCurrent(TokenType.SPECIAL_RIGHT_BRACE))
       {
-        // Perform single statement processing
+        matchAndPop(TokenType.SPECIAL_RIGHT_BRACE);
       }
     }
 
     // The if-statement is now complete
     return ifStatement;
+  }
+
+  private AbstractSyntaxTreeNode processStatementList()
+  {
+    AbstractSyntaxTreeNode node;
+    if (matchCurrent(TokenType.SPECIAL_LEFT_BRACE))
+    {
+      // Perform multiple statement processing
+      node = createSyntaxTree();
+    }
+    else
+    {
+      // Perform single statement processing
+      node = processStatement();
+    }
+
+    return node;
   }
 
   private ExpressionNode processSimpleExpression()
