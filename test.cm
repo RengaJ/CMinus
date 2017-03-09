@@ -15,5 +15,10 @@ void main(void)
 
     c = x != y;
 
+    while (0 == 0)
+    {
+       c = 5;
+    }
+
     return x <= y;
 }

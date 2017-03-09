@@ -1,18 +1,10 @@
 package parser;
 
 import syntaxtree.AbstractSyntaxTreeNode;
-import syntaxtree.expression.ConstantExpressionNode;
-import syntaxtree.expression.ExpressionNode;
-import syntaxtree.expression.IDExpressionNode;
-import syntaxtree.expression.OperationExpressionNode;
-import syntaxtree.meta.FunctionNode;
-import syntaxtree.meta.ParameterNode;
-import syntaxtree.expression.AssignExpressionNode;
-import syntaxtree.statement.IfStatementNode;
-import syntaxtree.statement.ReturnStatementNode;
-import syntaxtree.statement.VarDeclarationStatementNode;
-import tokens.Token;
-import tokens.TokenType;
+import syntaxtree.expression.*;
+import syntaxtree.meta.*;
+import syntaxtree.statement.*;
+import tokens.*;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -65,6 +57,11 @@ public final class Parser
   private AbstractSyntaxTreeNode createSyntaxTree()
   {
     AbstractSyntaxTreeNode statement = null;
+
+    if (matchNext(TokenType.SPECIAL_RIGHT_BRACE))
+    {
+      return null;
+    }
 
     currentToken = tokenList.pop();
 
@@ -124,7 +121,8 @@ public final class Parser
 
       case RESERVED_WHILE:
       {
-
+        statement = processWhileStatement();
+        break;
       }
 
       case RESERVED_INPUT:
@@ -139,6 +137,29 @@ public final class Parser
     }
 
     return statement;
+  }
+
+  private AbstractSyntaxTreeNode processWhileStatement()
+  {
+    WhileStatementNode whileStatement = new WhileStatementNode();
+    whileStatement.setLineNumber(currentToken.getLineNumber());
+    matchAndPop(TokenType.RESERVED_WHILE);
+
+    whileStatement.addChild(processParenthesis());
+    whileStatement.addChild(processStatementList());
+
+    if (matchCurrent(TokenType.SPECIAL_RIGHT_BRACE))
+    {
+      matchAndPop(TokenType.SPECIAL_RIGHT_BRACE);
+    }
+    else if (matchNext(TokenType.SPECIAL_RIGHT_BRACE))
+    {
+      tokenList.pop();
+
+      currentToken = tokenList.peek();
+    }
+
+    return whileStatement;
   }
 
   /**
@@ -166,14 +187,25 @@ public final class Parser
         // If there is no known type, create an IDExpressionNode
         if (identifierType == null)
         {
-          IDExpressionNode idNode = new IDExpressionNode();
-          idNode.setName(currentToken.getLexeme());
-          idNode.setLineNumber(currentToken.getLineNumber());
+          if (matchCurrent(TokenType.VARIABLE_IDENTIFIER))
+          {
+            IDExpressionNode idNode = new IDExpressionNode();
+            idNode.setName(currentToken.getLexeme());
+            idNode.setLineNumber(currentToken.getLineNumber());
 
-          node = idNode;
+            node = idNode;
 
-          // Pop off the identifier
-          matchAndPop(TokenType.VARIABLE_IDENTIFIER);
+            // Pop off the identifier
+            matchAndPop(TokenType.VARIABLE_IDENTIFIER);
+          }
+          else if (matchCurrent(TokenType.VARIABLE_NUMBER))
+          {
+            node = new ConstantExpressionNode();
+            node.setValue(Integer.parseInt(currentToken.getLexeme()));
+            node.setLineNumber(currentToken.getLineNumber());
+
+            matchAndPop(currentToken.getType());
+          }
         }
         // If there is an known type, create a VarDeclarationStatementNode
         else
@@ -521,7 +553,7 @@ public final class Parser
       node.setValue(Integer.parseInt(currentToken.getLexeme()));
       node.setLineNumber(currentToken.getLineNumber());
 
-      currentToken = tokenList.pop();
+      matchAndPop(currentToken.getType());
     }
     else if (matchCurrent(TokenType.SPECIAL_LEFT_PAREN))
     {
