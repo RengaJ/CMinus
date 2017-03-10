@@ -2,10 +2,8 @@ package parser;
 
 import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
-import syntaxtree.expression.AssignExpressionNode;
-import syntaxtree.expression.ConstantExpressionNode;
-import syntaxtree.expression.IDExpressionNode;
-import syntaxtree.expression.OperationExpressionNode;
+import syntaxtree.expression.*;
+import syntaxtree.meta.ArrayParameterNode;
 import syntaxtree.meta.FunctionNode;
 import syntaxtree.meta.ParameterNode;
 import syntaxtree.statement.IfStatementNode;
@@ -175,16 +173,19 @@ public final class Parser
 
       case RESERVED_IF:
       {
+        statement = processIf();
         break;
       }
 
       case RESERVED_WHILE:
       {
+        statement = processWhile();
         break;
       }
 
       case RESERVED_RETURN:
       {
+        statement = processReturn();
         break;
       }
 
@@ -352,6 +353,7 @@ public final class Parser
           // If the identifier type is not null, we're currently looking
           // at a declaration (could be in a parameter list, but it's
           // currently unknown).
+          node = processArrayParameter(identifierType);
         }
         else
         {
@@ -360,6 +362,7 @@ public final class Parser
           // here to ensure proper parsing:
           //
           // We could have ID[<number>], ID[ID], ID[ID[...]] or even ID[x + y]
+          node = processArrayIdentifier();
         }
         break;
       }
@@ -398,6 +401,7 @@ public final class Parser
         {
           // If the identifier type is null, we're currently looking
           // at a function call
+          // TODO: IMPLEMENT FUNCTION CALLS
         }
         break;
       }
@@ -450,6 +454,30 @@ public final class Parser
       }
     }
     return node;
+  }
+
+  private ArrayParameterNode processArrayParameter(Class<?> identifierType)
+  {
+    // Create the array parameter node
+    ArrayParameterNode arrayParameterNode = new ArrayParameterNode();
+
+    // Fill out the node with as much information as possible:
+    // > The name of the node will be the name of the identifier being assigned
+    // > The line number of the node
+    // > The token type will be VARIABLE_IDENTIFIER
+    // > The node type will be the current identifier type
+    arrayParameterNode.setName      (currentToken.getLexeme());
+    arrayParameterNode.setLineNumber(currentToken.getLineNumber());
+    arrayParameterNode.setTokenType (TokenType.VARIABLE_IDENTIFIER);
+    arrayParameterNode.setType      (identifierType);
+
+    // Advance the next few tokens to ensure processing continues smoothly
+    matchAndPop(TokenType.VARIABLE_IDENTIFIER);
+    matchAndPop(TokenType.SPECIAL_LEFT_BRACKET);
+    matchAndPop(TokenType.SPECIAL_RIGHT_BRACKET);
+
+    // Return the newly created array parameter node
+    return arrayParameterNode;
   }
 
   /**
@@ -517,14 +545,38 @@ public final class Parser
     varDeclaration.setTokenType (TokenType.VARIABLE_IDENTIFIER);
     varDeclaration.setType      (identifierType);
 
-    // Reset the identifier type, since it's no longer valid
-    identifierType = null;
-
     // Advance the current token to ensure that processing continues smoothly
     matchAndPop(TokenType.VARIABLE_IDENTIFIER);
 
     // There's nothing left to assign to this node, so return it now
     return varDeclaration;
+  }
+
+  private ArrayIDExpressionNode processArrayIdentifier()
+  {
+    // Create the array identifier expression node
+    ArrayIDExpressionNode arrayIdExpression = new ArrayIDExpressionNode();
+
+    // Fill out the node with as much information as possible:
+    // > The name of the node will be the name of the identifier being assigned
+    // > The line number of the node
+    // > The token type will be VARIABLE_IDENTIFIER
+    arrayIdExpression.setName      (currentToken.getLexeme());
+    arrayIdExpression.setLineNumber(currentToken.getLineNumber());
+    arrayIdExpression.setTokenType (TokenType.VARIABLE_IDENTIFIER);
+
+    // Advance the current token to ensure that processing continues smoothly
+    matchAndPop(TokenType.VARIABLE_IDENTIFIER);
+    // Match the left bracket to ensure that processing continues smoothly
+    matchAndPop(TokenType.SPECIAL_LEFT_BRACKET);
+
+    // The child of the array id expression will be an expression
+    arrayIdExpression.addChild(processExpression());
+
+    // Make sure the end of the statement was found properly
+    matchAndPop(TokenType.SPECIAL_RIGHT_BRACKET);
+
+    return arrayIdExpression;
   }
 
   /**
@@ -663,10 +715,11 @@ public final class Parser
       // perform the type processing
       AbstractSyntaxTreeNode statement = processStatement();
 
-      // If the returned (non-null) statement is actually a ParameterNode,
-      // keep track of the newly obtained parameter
+      // If the returned (non-null) statement is actually a ParameterNode or
+      // an ArrayParameterNode, keep track of the newly obtained parameter
       if ((statement != null) &&
-          (statement.getNodeType() == ASTNodeType.META_PARAMETER))
+          ((statement.getNodeType() == ASTNodeType.META_PARAMETER) ||
+           (statement.getNodeType() == ASTNodeType.META_ARRAY_PARAMETER)))
       {
         parameterNode = (ParameterNode) statement;
       }
