@@ -8,7 +8,10 @@ import syntaxtree.expression.IDExpressionNode;
 import syntaxtree.expression.OperationExpressionNode;
 import syntaxtree.meta.FunctionNode;
 import syntaxtree.meta.ParameterNode;
+import syntaxtree.statement.IfStatementNode;
+import syntaxtree.statement.ReturnStatementNode;
 import syntaxtree.statement.VarDeclarationStatementNode;
+import syntaxtree.statement.WhileStatementNode;
 import tokens.Token;
 import tokens.TokenType;
 
@@ -166,6 +169,21 @@ public final class Parser
       // want to log a syntax error here, since it might actually be
       // the expected token)
       case SPECIAL_SEMICOLON:
+      {
+        break;
+      }
+
+      case RESERVED_IF:
+      {
+        break;
+      }
+
+      case RESERVED_WHILE:
+      {
+        break;
+      }
+
+      case RESERVED_RETURN:
       {
         break;
       }
@@ -616,7 +634,7 @@ public final class Parser
     matchAndPop(TokenType.SPECIAL_ASSIGN);
 
     // Create an expression and assign it as the assignment node's child
-    // TODO: IMPLEMENT EXPRESSION FUNCTIONALITY
+    assignNode.addChild(processExpression());
 
     return assignNode;
   }
@@ -683,7 +701,7 @@ public final class Parser
    * @return The AbstractSyntaxTreeNode that represents the
    *         current simple-expression
    */
-  private AbstractSyntaxTreeNode processSimpleExpression()
+  private AbstractSyntaxTreeNode processExpression()
   {
     // Initialize the first additive expression to the result
     // of processAdditiveExpression
@@ -793,7 +811,8 @@ public final class Parser
       // satisfy the (exp) production rule
       case SPECIAL_LEFT_PAREN:
       {
-
+        factor = processParenthesis();
+        break;
       }
 
       // The current token is a number. The current processing will satisfy the NUM
@@ -881,6 +900,131 @@ public final class Parser
 
     return operation;
   }
+
+  /**
+   * Process the expression type (exp) and obtain the resulting node
+   * @return The AbstractSyntaxTreeNode contained within the (exp)
+   *         statement
+   */
+  private AbstractSyntaxTreeNode processParenthesis()
+  {
+    // To process this type of expression, first match and pop the left
+    // parenthesis, process the expression contained within, followed by
+    // matching and popping the right parenthesis
+    matchAndPop(TokenType.SPECIAL_LEFT_PAREN);
+    AbstractSyntaxTreeNode expression = processExpression();
+    matchAndPop(TokenType.SPECIAL_RIGHT_PAREN);
+
+    return expression;
+  }
+
+  private IfStatementNode processIf()
+  {
+    // Create the if statement
+    IfStatementNode ifStatement = new IfStatementNode();
+
+    // Fill out the node with as much information as possible:
+    // > The line number of the node
+    // > The token type will be RESERVED_WHILE
+    ifStatement.setLineNumber(currentToken.getLineNumber());
+    ifStatement.setTokenType (TokenType.RESERVED_WHILE);
+
+    // Advance the current token to ensure that processing continues smoothly
+    matchAndPop(TokenType.RESERVED_WHILE);
+
+    // Assign the condition contained after the while statement as the first child
+    ifStatement.addChild(processParenthesis());
+
+    // Check to see if there is a left brace as the next token
+    if (matchCurrent(TokenType.SPECIAL_LEFT_BRACE))
+    {
+      // If the next token is the left brace, advance the
+      // token and assign the contents of the { } as the
+      // if-statement's second child
+      matchAndPop(TokenType.SPECIAL_LEFT_BRACE);
+      ifStatement.addChild(createSyntaxTree());
+    }
+    else
+    {
+      // If the next token is not the left brace, assign
+      // the next statement as the if-statement's
+      // second child
+      ifStatement.addChild(processStatement());
+    }
+
+    // TODO: COMPLETE IMPLEMENTATION FOR ELSE STATEMENT
+
+    // Return the newly created if-statement node
+    return ifStatement;
+  }
+
+  private WhileStatementNode processWhile()
+  {
+    // Create the while statement
+    WhileStatementNode whileStatement = new WhileStatementNode();
+
+    // Fill out the node with as much information as possible:
+    // > The line number of the node
+    // > The token type will be RESERVED_WHILE
+    whileStatement.setLineNumber(currentToken.getLineNumber());
+    whileStatement.setTokenType (TokenType.RESERVED_WHILE);
+
+    // Advance the current token to ensure that processing continues smoothly
+    matchAndPop(TokenType.RESERVED_WHILE);
+
+    // Assign the condition contained after the while statement as the first child
+    whileStatement.addChild(processParenthesis());
+
+    // Check to see if there is a left brace as the next token
+    if (matchCurrent(TokenType.SPECIAL_LEFT_BRACE))
+    {
+      // If the next token is the left brace, advance the
+      // token and assign the contents of the { } as the
+      // while-statement's second child
+      matchAndPop(TokenType.SPECIAL_LEFT_BRACE);
+      whileStatement.addChild(createSyntaxTree());
+    }
+    else
+    {
+      // If the next token is not the left brace, assign
+      // the next statement as the while-statement's
+      // second child
+      whileStatement.addChild(processStatement());
+    }
+
+    // Return the newly created while-statement node
+    return whileStatement;
+  }
+
+  private ReturnStatementNode processReturn()
+  {
+    // Create the return statement
+    ReturnStatementNode returnStatement = new ReturnStatementNode();
+
+    // Fill out the node with as much information as possible:
+    // > The line number of the node
+    // > The token type will be RESERVED_RETURN
+    returnStatement.setLineNumber(currentToken.getLineNumber());
+    returnStatement.setTokenType (TokenType.RESERVED_RETURN);
+
+    // Advance the current token to ensure that processing continues smoothly
+    matchAndPop(TokenType.RESERVED_RETURN);
+
+    // Check to see if the current token is a semi-colon
+    if (!matchCurrent(TokenType.SPECIAL_SEMICOLON))
+    {
+      // If the current token is not a semi-colon, process the
+      // expression after the return statement
+      returnStatement.addChild(processExpression());
+    }
+
+    // Return the newly-created return-statement node
+    return returnStatement;
+  }
+
+  /* **************************************************************************** *
+   *                       PARSER UTILITY FUNCTIONS                               *
+   * **************************************************************************** */
 
   /**
    * Attempt to match the current token type with the expected token
