@@ -3,7 +3,9 @@ package parser;
 import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
 import syntaxtree.expression.AssignExpressionNode;
+import syntaxtree.expression.ConstantExpressionNode;
 import syntaxtree.expression.IDExpressionNode;
+import syntaxtree.expression.OperationExpressionNode;
 import syntaxtree.meta.FunctionNode;
 import syntaxtree.meta.ParameterNode;
 import syntaxtree.statement.VarDeclarationStatementNode;
@@ -636,7 +638,7 @@ public final class Parser
     // These tokens indicate that (hopefully) a ParameterNode has been
     // properly parsed
     while (!matchCurrent(TokenType.SPECIAL_COMMA) &&
-           !matchCurrent(TokenType.SPECIAL_RIGHT_PAREN))
+        !matchCurrent(TokenType.SPECIAL_RIGHT_PAREN))
     {
       // Get the statement returned from the processStatement function.
       // It is expected that the first call will return null, as it will
@@ -648,7 +650,7 @@ public final class Parser
       if ((statement != null) &&
           (statement.getNodeType() == ASTNodeType.META_PARAMETER))
       {
-        parameterNode = (ParameterNode)statement;
+        parameterNode = (ParameterNode) statement;
       }
     }
 
@@ -671,6 +673,106 @@ public final class Parser
     }
 
     return parameterNode;
+  }
+
+  /**
+   * Process the simple-expression portion of the grammar. This
+   * portion handles the relational operations ==, !=, >, <,
+   * >= and <=.
+   *
+   * @return The AbstractSyntaxTreeNode that represents the
+   *         current simple-expression
+   */
+  private AbstractSyntaxTreeNode processSimpleExpression()
+  {
+    // Initialize the first additive expression to the result
+    // of processAdditiveExpression
+    AbstractSyntaxTreeNode reference = processAdditiveExpression();
+
+    // Check to see if the next token is a relational operator
+    if (matchCurrent(TokenType.SPECIAL_EQUAL)        ||
+        matchCurrent(TokenType.SPECIAL_NOT_EQUAL)    ||
+        matchCurrent(TokenType.SPECIAL_GREATER_THAN) ||
+        matchCurrent(TokenType.SPECIAL_LESS_THAN)    ||
+        matchCurrent(TokenType.SPECIAL_GTE)          ||
+        matchCurrent(TokenType.SPECIAL_LTE))
+    {
+      // If a relational operator has been found, create an operator
+      // node that contains the current operation
+      OperationExpressionNode opNode = processOperator(Boolean.class);
+
+      // Add the current reference to the operator node (left-hand side)
+      opNode.addChild(reference);
+
+      // Create a new additive-expression and add it to the operator node
+      // (right-hand side)
+      opNode.addChild(processAdditiveExpression());
+
+      // Change the reference to point to the operator node
+      reference = opNode;
+    }
+
+    return reference;
+  }
+
+  /**
+   * Process the additive-expression portion of the grammar. This
+   * portion handles the additive operations + and -.
+   *
+   * @return The AbstractSyntaxTreeNode that represents the current
+   *         additive-expression
+   */
+  private AbstractSyntaxTreeNode processAdditiveExpression()
+  {
+    // Initialize the first term to the result of processTerm
+    AbstractSyntaxTreeNode reference = processTerm();
+
+    // Check to see if the next token is an additive operator
+    if (matchCurrent(TokenType.SPECIAL_PLUS) ||
+        matchCurrent(TokenType.SPECIAL_MINUS))
+    {
+      // If an additive operator has been found, create an operator
+      // node that contains the current operation
+      OperationExpressionNode opNode = processOperator(Integer.class);
+
+      // Add the current reference to the operator node (left-hand side)
+      opNode.addChild(reference);
+
+      // Create a new additive-expression and add it to the operator node
+      // (right-hand side)
+      opNode.addChild(processAdditiveExpression());
+
+      // Change the reference to point to the operator node
+      reference = opNode;
+    }
+
+    return reference;
+  }
+
+  /**
+   * Process the term portion of the grammar. This portion handles
+   * the multiplicative operations * and /, though great care needs
+   * to be taken when ordering the resulting operations.
+   *
+   * @return The AbstractSyntaxNode that represents the current term
+   */
+  private AbstractSyntaxTreeNode processTerm()
+  {
+    // Initialize the first factor to the result of processFactor
+    AbstractSyntaxTreeNode reference = processFactor();
+
+    // Check to see if the next token is a multiplicative operator
+    if (matchCurrent(TokenType.SPECIAL_TIMES) ||
+        matchCurrent(TokenType.SPECIAL_DIVIDE))
+    {
+      // If a multiplicative operator has been found, create an operator
+      // node that contains the current operation
+      OperationExpressionNode opNode = processOperator(Integer.class);
+
+      // TODO: COMPLETE IMPLEMENTATION
+    }
+
+    return reference;
   }
 
   /**
@@ -698,7 +800,8 @@ public final class Parser
       // production rule
       case VARIABLE_NUMBER:
       {
-
+        factor = processConstant();
+        break;
       }
 
       // The current token is an identifier. The current processing will need to satisfy
@@ -706,11 +809,77 @@ public final class Parser
       // this for us.
       case VARIABLE_IDENTIFIER:
       {
+        factor = processID(null);
+        break;
+      }
 
+      // The current token is none of the above options, so a syntax error has occurred.
+      // Log the syntax error and return null.
+      default:
+      {
+        logSyntaxError();
+        break;
       }
     }
 
     return factor;
+  }
+
+  /**
+   * Process the current token into a ConstantExpressionNode to represent
+   * a constant number.
+   *
+   * @return The ConstantExpressionNode that represents the current number
+   */
+  private ConstantExpressionNode processConstant()
+  {
+    // Create the number node
+    ConstantExpressionNode number = new ConstantExpressionNode();
+
+    // Fill out the node with as much information as possible:
+    // > The value of the node will be the name of the value being assigned
+    // > The line number of the node
+    // > The token type will be VARIABLE_NUMBER
+    // > The node type will be Integer
+    number.setValue     (Integer.parseInt(currentToken.getLexeme()));
+    number.setLineNumber(currentToken.getLineNumber());
+    number.setTokenType (TokenType.VARIABLE_NUMBER);
+    number.setType      (Integer.class);
+
+    // Advance the current token to ensure that processing continues smoothly
+    matchAndPop(TokenType.VARIABLE_NUMBER);
+
+    return number;
+  }
+
+  /**
+   * Process the current operation token into a usable node
+   *
+   * @param identifierType The return-type of the operation being performed
+   *
+   * @return The OperationExpressionNode that will be used for creating expressions
+   */
+  private OperationExpressionNode processOperator(Class<?> identifierType)
+  {
+    // Initialize the operation node
+    OperationExpressionNode operation = new OperationExpressionNode();
+
+    // Fill out the node with as much information as possible:
+    // > The name of the node will be the name of the operator being assigned
+    // > The line number of the node
+    // > The token type will be operator being assigned
+    // > The node type will be provided by the caller
+    operation.setName      (currentToken.getLexeme());
+    operation.setLineNumber(currentToken.getLineNumber());
+    operation.setTokenType (currentToken.getType());
+    operation.setType      (identifierType);
+
+    // Advance the current token to ensure that processing continues smoothly
+    // (since it's unknown what the current token type is, simply pass in the
+    // current token type to ensure that it gets advanced correctly)
+    matchAndPop(currentToken.getType());
+
+    return operation;
   }
 
   /**

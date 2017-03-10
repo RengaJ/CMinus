@@ -11,9 +11,9 @@ public class OperationExpressionNode extends ExpressionNode
   /**
    * Full constructor of the OperationExpressionNode
    */
-  public OperationExpressionNode(final TokenType tokenType)
+  public OperationExpressionNode()
   {
-    super(tokenType);
+    super(TokenType.BOOKKEEPING_ERROR);
   }
 
   /**
