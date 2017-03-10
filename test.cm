@@ -1,16 +1,16 @@
-int z;
+/*int z; */
 
 int gcd(int u, int v)
 {
-    if (v == 0) {
+    /* if (v == 0) {
         return v; }
-    else { return u; }
+    else { return u; } */
 }
 void main(void)
 {
     int x;
     int y;
-
+/*
     int c;
 
     c = x != y;
@@ -20,5 +20,5 @@ void main(void)
        c = 5;
     }
 
-    return x <= y;
+    return x <= y; */
 }
