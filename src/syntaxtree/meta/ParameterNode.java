@@ -4,26 +4,17 @@ import syntaxtree.ASTNodeType;
 import tokens.TokenType;
 
 /**
- * Concrete class that represents a function parameter in the
- * abstract syntax tree.
+ * Decorator for the ArrayParameterNode and SimpleParameterNode meta nodes
  */
-public final class ParameterNode extends MetaNode
+public abstract class ParameterNode extends MetaNode
 {
   /**
-   * Full constructor of the ParameterNode
-   */
-  public ParameterNode()
-  {
-    super(TokenType.VARIABLE_IDENTIFIER);
-  }
-  /**
-   * Get the enumerated type of the current Abstract Syntax Tree node
+   * Full constructor for the ParameterNode
    *
-   * @return The ASTNodeType that represents the current node type
+   * @param tokenType The token type to be assigned to the node
    */
-  @Override
-  public ASTNodeType getNodeType()
+  public ParameterNode(TokenType tokenType)
   {
-    return ASTNodeType.META_PARAMETER;
+    super(tokenType);
   }
 }

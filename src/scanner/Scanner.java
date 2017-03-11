@@ -602,23 +602,19 @@ public final class Scanner
   /**
    * Create the reserved token tree that has the following structure:
    *
-   *                       o u t p u t
-   *                     /            \
-   *                input              void
-   *               /     \            /    \
-   *             if       int   return      while
-   *            /
-   *        else
+   *                           if
+   *                         /    \
+   *                     else      void
+   *                       \      /    \
+   *                      int return  while
    *
    * @return A {@link TokenTree} object that contains {@link ReservedToken}
    *         objects
    */
   private TokenTree<ReservedToken> createTokenTree()
   {
-    TokenTree<ReservedToken> tokenTree = new TokenTree<>(new OutputToken());
+    TokenTree<ReservedToken> tokenTree = new TokenTree<>(new IfToken());
 
-    tokenTree.add(new InputToken());
-    tokenTree.add(new IfToken());
     tokenTree.add(new ElseToken());
     tokenTree.add(new IntToken());
     tokenTree.add(new VoidToken());

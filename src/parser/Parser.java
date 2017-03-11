@@ -6,6 +6,7 @@ import syntaxtree.expression.*;
 import syntaxtree.meta.ArrayParameterNode;
 import syntaxtree.meta.FunctionNode;
 import syntaxtree.meta.ParameterNode;
+import syntaxtree.meta.SimpleParameterNode;
 import syntaxtree.statement.IfStatementNode;
 import syntaxtree.statement.ReturnStatementNode;
 import syntaxtree.statement.VarDeclarationStatementNode;
@@ -401,7 +402,7 @@ public final class Parser
         {
           // If the identifier type is null, we're currently looking
           // at a function call
-          // TODO: IMPLEMENT FUNCTION CALLS
+          processFunctionCall();
         }
         break;
       }
@@ -488,10 +489,10 @@ public final class Parser
    *
    * @return The created simple parameter node
    */
-  private ParameterNode processSimpleParameter(Class<?> identifierType)
+  private SimpleParameterNode processSimpleParameter(Class<?> identifierType)
   {
     // Create the parameter node
-    ParameterNode parameterNode = new ParameterNode();
+    SimpleParameterNode parameterNode = new SimpleParameterNode();
 
     // Fill out the node with as much information as possible:
     // > The name of the node will be the name of the identifier being assigned
@@ -650,6 +651,30 @@ public final class Parser
     return functionNode;
   }
 
+  private FunctionCallExpressionNode processFunctionCall()
+  {
+    // Create the function call expression node
+    FunctionCallExpressionNode functionCall = new FunctionCallExpressionNode();
+
+    // Fill out the node with as much information as possible:
+    // > The name of the node will be the name of the identifier being assigned
+    // > The line number of the node
+    // > The token type will be VARIABLE_IDENTIFIER
+    functionCall.setName      (currentToken.getLexeme());
+    functionCall.setLineNumber(currentToken.getLineNumber());
+    functionCall.setTokenType (TokenType.VARIABLE_IDENTIFIER);
+
+    // Advance the next token to ensure processing continues smoothly
+    matchAndPop(TokenType.VARIABLE_IDENTIFIER);
+
+    // Process the argument list (The ID() case will be handled properly in
+    // the argument processing list
+    matchAndPop(TokenType.SPECIAL_LEFT_PAREN);
+    functionCall.addChild(processArgumentList());
+    matchAndPop(TokenType.SPECIAL_RIGHT_PAREN);
+    return functionCall;
+  }
+
   /**
    * Create an AssignExpressionNode that corresponds to the
    * current context
@@ -747,6 +772,50 @@ public final class Parser
   }
 
   /**
+   * Process the list of parameters for a function signature.
+   *
+   * @return The ParameterNode that marks the beginning of a
+   *         list of ParameterNodes contained in a function
+   *         signature.
+   */
+  private AbstractSyntaxTreeNode processArgumentList()
+  {
+    // Initialize the parameter node to be null, in case
+    // processing starts to go bad
+    AbstractSyntaxTreeNode argumentNode = null;
+
+    // Process until either a comma or a right parenthesis is found.
+    // These tokens indicate that (hopefully) a ParameterNode has been
+    // properly parsed
+    while (!matchCurrent(TokenType.SPECIAL_COMMA) &&
+        !matchCurrent(TokenType.SPECIAL_RIGHT_PAREN))
+    {
+      // Get the statement returned from the processStatement function.
+      // It is expected that the first call will return null, as it will
+      // perform the type processing
+      AbstractSyntaxTreeNode statement = processExpression();
+
+      // If the returned (non-null) statement is actually a ParameterNode or
+      // an ArrayParameterNode, keep track of the newly obtained parameter
+      if (statement != null)
+      {
+        argumentNode = statement;
+      }
+    }
+
+    // If the current token is a comma, the list is not finished,
+    // so continue the list as a sibling for the current parameter
+    if (argumentNode != null && matchCurrent(TokenType.SPECIAL_COMMA))
+    {
+      // Assign the current tokne to the next token in the list
+      matchAndPop(TokenType.SPECIAL_COMMA);
+      argumentNode.setSibling(processArgumentList());
+    }
+
+    return argumentNode;
+  }
+
+  /**
    * Process the simple-expression portion of the grammar. This
    * portion handles the relational operations ==, !=, >, <,
    * >= and <=.
@@ -809,12 +878,87 @@ public final class Parser
       // Add the current reference to the operator node (left-hand side)
       opNode.addChild(reference);
 
-      // Create a new additive-expression and add it to the operator node
-      // (right-hand side)
-      opNode.addChild(processAdditiveExpression());
+      // Check to see if the next token is a left parenthesis. We will
+      // need to keep track of this for re-ordering purposes.
+      boolean nextParen = matchCurrent(TokenType.SPECIAL_LEFT_PAREN);
 
-      // Change the reference to point to the operator node
-      reference = opNode;
+      // Process the next expression as an additive-expression
+      AbstractSyntaxTreeNode additiveExp = processAdditiveExpression();
+
+      //////////////////////////////////////////////////////////////////////////////
+      // If the returned expression is actually an operator, the operator
+      // is either a + or -, and we did not detect a left paren prior
+      // to parsing, order of operations must be preserved:
+      // Example: u-v+v
+      //  Without special processing, the expression tree becomes:
+      //
+      //         -        This is an incorrect expression tree, because
+      //        / \       operations are left-associative and should be
+      //       u   +      operated on from the left to the right. This
+      //          / \     provides the WRONG answer, and will cause problems
+      //         v   v    in the future.
+      //
+      // With special processing, the expression tree becomes:
+      //
+      //           +     This is a correct expression tree, because
+      //          / \    operations are left-associative and should be
+      //         -   v   (and are) operated on from left to right. The
+      //        / \      division is correctly being processed first, so
+      //       u   v     the CORRECT answer will be provided.
+      //
+      // The special processing that's involved requires that the returned
+      // operator becomes re-created, using the terms its has already parsed.
+      // Here's what the above tree would look like prior to the special
+      // processing:
+      //
+      //      -        +     Notice how the addition operator contains
+      //      |       / \    both of the v ID's. This needs to be fixed. This
+      //      u      v   v   is done by moving the left child of the new operator
+      //                     from its current location to the right child of the
+      // current operator. This is most easily done through the creation of a
+      // new operator that will be a copy of the newly created operator, just with
+      // no children attached yet. The transfer looks like the following:
+      //
+      //      -       +     +      The final step is to perform the re-assignment
+      //     / \     / \           of the children to the copy. This was described
+      //    u   v   v   v          above.
+      //   Current   New   Copy
+      //
+      // Final result:
+      //
+      //     -      +          +     The copied node will become the node that is
+      //    / \    / \        / \    returned from this expression, as it is now
+      //   u   v  v   v      -   v   the most accurate representation of the
+      //                    / \      expression tree.
+      //                   u   v
+      //  Current  New       Copy
+      //////////////////////////////////////////////////////////////////////////////
+
+      // Check the state of the newly created additive expression
+      if ((!nextParen) &&
+          (additiveExp.getNodeType() == ASTNodeType.EXPRESSION_OPERATION) &&
+          ((additiveExp.getTokenType() == TokenType.SPECIAL_PLUS)         ||
+           (additiveExp.getTokenType() == TokenType.SPECIAL_MINUS)))
+      {
+        OperationExpressionNode newOpNode = new OperationExpressionNode();
+        newOpNode.setLineNumber(additiveExp.getLineNumber());
+        newOpNode.setTokenType (additiveExp.getTokenType());
+        newOpNode.setType      (additiveExp.getType());
+
+        opNode.addChild(additiveExp.getChild(0));
+
+        newOpNode.addChild(opNode);
+        newOpNode.addChild(additiveExp.getChild(1));
+
+        reference = newOpNode;
+      }
+      else
+      {
+        opNode.addChild(additiveExp);
+
+        // Change the reference to point to the operator node
+        reference = opNode;
+      }
     }
 
     return reference;
@@ -840,7 +984,91 @@ public final class Parser
       // node that contains the current operation
       OperationExpressionNode opNode = processOperator(Integer.class);
 
-      // TODO: COMPLETE IMPLEMENTATION
+      // Add the current reference as the first (left) child of the operator
+      opNode.addChild(reference);
+
+      // Check to see if the next token is a left parenthesis. We will
+      // need to keep track of this for re-ordering purposes.
+      boolean nextParen = matchCurrent(TokenType.SPECIAL_LEFT_PAREN);
+
+      // Process the next expression as a term
+      AbstractSyntaxTreeNode termExp = processTerm();
+
+      //////////////////////////////////////////////////////////////////////////////
+      // If the returned term is actually an operator, the operator
+      // is either a * or /, and we did not detect a left paren prior
+      // to parsing, order of operations must be preserved:
+      // Example: u/v*v
+      //  Without special processing, the expression tree becomes:
+      //
+      //         /        This is an incorrect expression tree, because
+      //        / \       operations are left-associative and should be
+      //       u   *      operated on from the left to the right. This
+      //          / \     provides the WRONG answer, and will cause problems
+      //         v   v    in the future.
+      //
+      // With special processing, the expression tree becomes:
+      //
+      //           *     This is a correct expression tree, because
+      //          / \    operations are left-associative and should be
+      //         /   v   (and are) operated on from left to right. The
+      //        / \      division is correctly being processed first, so
+      //       u   v     the CORRECT answer will be provided.
+      //
+      // The special processing that's involved requires that the returned
+      // operator becomes re-created, using the terms its has already parsed.
+      // Here's what the above tree would look like prior to the special
+      // processing:
+      //
+      //      /        *     Notice how the multiplication operator contains
+      //      |       / \    both of the v ID's. This needs to be fixed. This
+      //      u      v   v   is done by moving the left child of the new operator
+      //                     from its current location to the right child of the
+      // current operator. This is most easily done through the creation of a
+      // new operator that will be a copy of the newly created operator, just with
+      // no children attached yet. The transfer looks like the following:
+      //
+      //      /       *     *      The final step is to perform the re-assignment
+      //     / \     / \           of the children to the copy. This was described
+      //    u   v   v   v          above.
+      //   Current   New   Copy
+      //
+      // Final result:
+      //
+      //     /      *          *     The copied node will become the node that is
+      //    / \    / \        / \    returned from this expression, as it is now
+      //   u   v  v   v      /   v   the most accurate representation of the
+      //                    / \      expression tree.
+      //                   u   v
+      //  Current  New       Copy
+      //////////////////////////////////////////////////////////////////////////////
+
+
+      // Check the state of the newly created additive expression
+      if ((!nextParen) &&
+          (termExp.getNodeType() == ASTNodeType.EXPRESSION_OPERATION) &&
+          ((termExp.getTokenType() == TokenType.SPECIAL_TIMES)        ||
+           (termExp.getTokenType() == TokenType.SPECIAL_DIVIDE)))
+      {
+        OperationExpressionNode newOpNode = new OperationExpressionNode();
+        newOpNode.setLineNumber(termExp.getLineNumber());
+        newOpNode.setTokenType (termExp.getTokenType());
+        newOpNode.setType      (termExp.getType());
+
+        opNode.addChild(termExp.getChild(0));
+
+        newOpNode.addChild(opNode);
+        newOpNode.addChild(termExp.getChild(1));
+
+        reference = newOpNode;
+      }
+      else
+      {
+        opNode.addChild(termExp);
+
+        // Change the reference to point to the operator node
+        reference = opNode;
+      }
     }
 
     return reference;
@@ -980,10 +1208,10 @@ public final class Parser
     // > The line number of the node
     // > The token type will be RESERVED_WHILE
     ifStatement.setLineNumber(currentToken.getLineNumber());
-    ifStatement.setTokenType (TokenType.RESERVED_WHILE);
+    ifStatement.setTokenType (TokenType.RESERVED_IF);
 
     // Advance the current token to ensure that processing continues smoothly
-    matchAndPop(TokenType.RESERVED_WHILE);
+    matchAndPop(TokenType.RESERVED_IF);
 
     // Assign the condition contained after the while statement as the first child
     ifStatement.addChild(processParenthesis());
@@ -1003,9 +1231,33 @@ public final class Parser
       // the next statement as the if-statement's
       // second child
       ifStatement.addChild(processStatement());
+
+      if (matchNext(TokenType.RESERVED_ELSE))
+      {
+        matchAndPop(TokenType.SPECIAL_SEMICOLON);
+      }
     }
 
-    // TODO: COMPLETE IMPLEMENTATION FOR ELSE STATEMENT
+    if (matchCurrent(TokenType.RESERVED_ELSE))
+    {
+      matchAndPop(TokenType.RESERVED_ELSE);
+      // Check to see if there is a left brace as the next token
+      if (matchCurrent(TokenType.SPECIAL_LEFT_BRACE))
+      {
+        // If the next token is the left brace, advance the
+        // token and assign the contents of the { } as the
+        // if-statement's second child
+        matchAndPop(TokenType.SPECIAL_LEFT_BRACE);
+        ifStatement.addChild(createSyntaxTree());
+      }
+      else
+      {
+        // If the next token is not the left brace, assign
+        // the next statement as the if-statement's
+        // second child
+        ifStatement.addChild(processStatement());
+      }
+    }
 
     // Return the newly created if-statement node
     return ifStatement;
@@ -1106,6 +1358,11 @@ public final class Parser
   private boolean matchCurrent(final TokenType expected)
   {
     return currentToken.getType() == expected;
+  }
+
+  private boolean matchNext(final TokenType expected)
+  {
+    return tokenList.peek().getType() == expected;
   }
 
   private void logSyntaxError(final Token token, final TokenType expected)

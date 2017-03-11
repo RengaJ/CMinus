@@ -7,7 +7,7 @@ import tokens.TokenType;
  * Concrete class representing an array parameter node in the
  * abstract syntax tree
  */
-public class ArrayParameterNode extends MetaNode
+public class ArrayParameterNode extends ParameterNode
 {
   /**
    * Full constructor for the ArrayParameterNode
