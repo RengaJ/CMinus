@@ -1,7 +1,6 @@
 package syntaxtree.expression;
 
 import syntaxtree.ASTNodeType;
-import syntaxtree.statement.StatementNode;
 import tokens.TokenType;
 
 /**
