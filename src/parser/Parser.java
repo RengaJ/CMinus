@@ -402,7 +402,7 @@ public final class Parser
         {
           // If the identifier type is null, we're currently looking
           // at a function call
-          processFunctionCall();
+          node = processFunctionCall();
         }
         break;
       }
@@ -672,6 +672,7 @@ public final class Parser
     matchAndPop(TokenType.SPECIAL_LEFT_PAREN);
     functionCall.addChild(processArgumentList());
     matchAndPop(TokenType.SPECIAL_RIGHT_PAREN);
+
     return functionCall;
   }
 
