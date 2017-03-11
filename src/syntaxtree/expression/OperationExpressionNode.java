@@ -6,7 +6,7 @@ import tokens.TokenType;
 /**
  * Concrete class that represents an operation in the abstract syntax tree
  */
-public class OperationExpressionNode extends ExpressionNode
+public final class OperationExpressionNode extends ExpressionNode
 {
   /**
    * Full constructor of the OperationExpressionNode

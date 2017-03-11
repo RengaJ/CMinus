@@ -7,7 +7,7 @@ import tokens.TokenType;
  * The concrete class representing a number in the abstract syntax
  * tree.
  */
-public class ConstantExpressionNode extends ExpressionNode
+public final class ConstantExpressionNode extends ExpressionNode
 {
   /**
    * Full constructor for the ConstantExpressionNode

@@ -1,19 +1,11 @@
 package parser;
 
 import globals.CompilerFlags;
-import syntaxtree.ASTNodeType;
-import syntaxtree.AbstractSyntaxTreeNode;
+import syntaxtree.*;
 import syntaxtree.expression.*;
-import syntaxtree.meta.ArrayParameterNode;
-import syntaxtree.meta.FunctionNode;
-import syntaxtree.meta.ParameterNode;
-import syntaxtree.meta.SimpleParameterNode;
-import syntaxtree.statement.IfStatementNode;
-import syntaxtree.statement.ReturnStatementNode;
-import syntaxtree.statement.VarDeclarationStatementNode;
-import syntaxtree.statement.WhileStatementNode;
-import tokens.Token;
-import tokens.TokenType;
+import syntaxtree.meta.*;
+import syntaxtree.statement.*;
+import tokens.*;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -37,10 +29,24 @@ public final class Parser
   private Token currentToken;
 
   /**
+   * The current tree (used for special assign processing)
+   */
+  private AbstractSyntaxTreeNode currentTree;
+
+  /**
+   *
+   */
+  private boolean fatalError;
+
+  /**
    * Full constructor for the Parser
    */
   public Parser()
   {
+    currentTree = null;
+    currentToken = null;
+    tokenList = null;
+    fatalError = false;
   }
 
   /**
@@ -60,6 +66,9 @@ public final class Parser
     // and remove it from the list
     currentToken = this.tokenList.pop();
 
+    // Reset the fatal error flag
+    fatalError = false;
+
     AbstractSyntaxTreeNode tree = createSyntaxTree();
 
     if (CompilerFlags.TraceParser)
@@ -70,6 +79,22 @@ public final class Parser
     return tree;
   }
 
+  /**
+   * Obtain an indication as to whether or not a syntax error occurred.
+   *
+   * @return
+   */
+  public boolean syntaxErrorOccurred()
+  {
+    return fatalError;
+  }
+
+  /**
+   * The recursive function used to create the syntax tree and assign the
+   * sibling statements.
+   *
+   * @return The full abstract syntax tree
+   */
   private AbstractSyntaxTreeNode createSyntaxTree()
   {
     // Check to see if the end-of-file indicator has been reached.
@@ -195,6 +220,28 @@ public final class Parser
       case RESERVED_RETURN:
       {
         statement = processReturn();
+        break;
+      }
+
+      case SPECIAL_ASSIGN:
+      {
+        statement = processAssignment();
+        break;
+      }
+
+      // Expression Operators
+      case SPECIAL_PLUS:
+      case SPECIAL_MINUS:
+      case SPECIAL_DIVIDE:
+      case SPECIAL_TIMES:
+      case SPECIAL_LESS_THAN:
+      case SPECIAL_LTE:
+      case SPECIAL_GREATER_THAN:
+      case SPECIAL_GTE:
+      case SPECIAL_EQUAL:
+      case SPECIAL_NOT_EQUAL:
+      {
+        statement = processExpression();
         break;
       }
 
@@ -362,7 +409,7 @@ public final class Parser
           // If the identifier type is not null, we're currently looking
           // at a declaration (could be in a parameter list, but it's
           // currently unknown).
-          node = processArrayParameter(identifierType);
+          node = processArray(identifierType);
         }
         else
         {
@@ -465,6 +512,76 @@ public final class Parser
     return node;
   }
 
+  /**
+   * Process the array-type identifier, knowing that this will either be
+   * a declaration or a parameter being returned.
+   *
+   * @param identifierType The identifier type (hopefully just Integer.class)
+   * @return The processed array type
+   */
+  private AbstractSyntaxTreeNode processArray(Class<?> identifierType)
+  {
+    // Assign the currentTree value because popping will need to occur and
+    // we don't want the current variable to be lost. Note that this pops the
+    // VARIABLE_IDENTIFIER out of the token list.
+    currentTree = processSimpleIdentifier();
+
+    // If the next token is a right bracket (we're currently on the left bracket),
+    // an array parameter is being defined
+    if (matchNext(TokenType.SPECIAL_RIGHT_BRACKET))
+    {
+      return processArrayParameter(identifierType);
+    }
+    // Otherwise an array declaration is being made
+    else
+    {
+      return processArrayDeclaration(identifierType);
+    }
+  }
+
+  /**
+   * Process the array-declaration that was identified.
+   *
+   * @param identifierType The identifier type
+   * @return The processed array-declaration
+   */
+  private ArrayDeclarationStatementNode processArrayDeclaration(
+      Class<?> identifierType)
+  {
+    // Create the array declaration statement
+    ArrayDeclarationStatementNode arrayDeclaration =
+        new ArrayDeclarationStatementNode();
+
+    // Fill out the node with as much information as possible:
+    // > The name of the node will be the name of the identifier being assigned
+    // > The line number of the node
+    // > The token type will be VARIABLE_IDENTIFIER
+    // > The node type will be the current identifier type
+    // (Use the currentTree for the name because the current token is not a
+    //  VARIABLE_IDENTIFIER anymore)
+    arrayDeclaration.setName      (currentTree.getName());
+    arrayDeclaration.setLineNumber(currentTree.getLineNumber());
+    arrayDeclaration.setTokenType (TokenType.VARIABLE_IDENTIFIER);
+    arrayDeclaration.setType      (identifierType);
+
+    // Reset the current tree
+    currentTree = null;
+
+    // Process [NUM]
+    matchAndPop(TokenType.SPECIAL_LEFT_BRACKET);
+    arrayDeclaration.addChild(processConstant());
+    matchAndPop(TokenType.SPECIAL_RIGHT_BRACKET);
+
+    return arrayDeclaration;
+  }
+
+  /**
+   * Process the array parameter that was identified
+   *
+   * @param identifierType The identifier type
+   *
+   * @return
+   */
   private ArrayParameterNode processArrayParameter(Class<?> identifierType)
   {
     // Create the array parameter node
@@ -480,8 +597,10 @@ public final class Parser
     arrayParameterNode.setTokenType (TokenType.VARIABLE_IDENTIFIER);
     arrayParameterNode.setType      (identifierType);
 
+    // Reset the currentTree here
+    currentTree = null;
+
     // Advance the next few tokens to ensure processing continues smoothly
-    matchAndPop(TokenType.VARIABLE_IDENTIFIER);
     matchAndPop(TokenType.SPECIAL_LEFT_BRACKET);
     matchAndPop(TokenType.SPECIAL_RIGHT_BRACKET);
 
@@ -539,7 +658,8 @@ public final class Parser
    *
    * @return The created identifier declaration node
    */
-  private VarDeclarationStatementNode processSimpleDeclaration(Class<?> identifierType)
+  private VarDeclarationStatementNode processSimpleDeclaration(
+      Class<?> identifierType)
   {
     // Create the variable declaration statement node
     VarDeclarationStatementNode varDeclaration = new VarDeclarationStatementNode();
@@ -561,7 +681,13 @@ public final class Parser
     return varDeclaration;
   }
 
-  private ArrayIDExpressionNode processArrayIdentifier()
+  /**
+   * Process an array identifier (not a declaration)
+   *
+   * @return The processed ArrayIDExpressionNode or actual
+   *         AbstractSyntaxTreeNode (depends on the context)
+   */
+  private AbstractSyntaxTreeNode processArrayIdentifier()
   {
     // Create the array identifier expression node
     ArrayIDExpressionNode arrayIdExpression = new ArrayIDExpressionNode();
@@ -585,7 +711,25 @@ public final class Parser
     // Make sure the end of the statement was found properly
     matchAndPop(TokenType.SPECIAL_RIGHT_BRACKET);
 
-    return arrayIdExpression;
+    // Check to see if we're at the end of a statement (either
+    // a comma or right parenthesis (for argument lists) or a
+    // semi-colon).
+    if (matchCurrent(TokenType.SPECIAL_SEMICOLON)   ||
+        matchCurrent(TokenType.SPECIAL_RIGHT_PAREN) ||
+        matchCurrent(TokenType.SPECIAL_COMMA))
+    {
+      // If either of those are now the current token, simply
+      // return the current expression.
+      return arrayIdExpression;
+    }
+    else
+    {
+      // Otherwise we need to set the current tree tracker to
+      // the newly created ArrayIDExpression and continue
+      // processing
+      currentTree = arrayIdExpression;
+      return processStatement();
+    }
   }
 
   /**
@@ -650,8 +794,9 @@ public final class Parser
     functionNode.addChild(processParameterList());
     matchAndPop(TokenType.SPECIAL_RIGHT_PAREN);
 
-    // To complete step 2, the left brace must be matched. Following this, all of the
-    // subsequent statements must be processed until the right brace has been detected.
+    // To complete step 2, the left brace must be matched. Following this, all of
+    // the subsequent statements must be processed until the right brace has been
+    // detected.
     matchAndPop(TokenType.SPECIAL_LEFT_BRACE);
     functionNode.addChild(createSyntaxTree());
 
@@ -659,6 +804,11 @@ public final class Parser
     return functionNode;
   }
 
+  /**
+   * Process a function call and its argument list
+   *
+   * @return The processed FunctionCallExpressionNode
+   */
   private FunctionCallExpressionNode processFunctionCall()
   {
     // Create the function call expression node
@@ -696,10 +846,8 @@ public final class Parser
     AssignExpressionNode assignNode = new AssignExpressionNode();
 
     // Fill out the node with as much information as possible:
-    // > The name of the node will be the name of the identifier being assigned
     // > The line number of the node
     // > The token type will be SPECIAL_ASSIGN
-    assignNode.setName      (currentToken.getLexeme());
     assignNode.setLineNumber(currentToken.getLineNumber());
     assignNode.setTokenType (TokenType.SPECIAL_ASSIGN);
 
@@ -713,9 +861,18 @@ public final class Parser
     //  4.  +                              + <-- new head
     // (the x prefix indicates that the token was removed)
 
-    // Match the current ID
-    matchAndPop(TokenType.VARIABLE_IDENTIFIER);
+    if (currentTree != null)
+    {
+      assignNode.addChild(currentTree);
+      currentTree = null;
+    }
+    else
+    {
+      assignNode.addChild(processSimpleIdentifier());
+    }
 
+    // Assign the name here for consistency
+    assignNode.setName(currentToken.getLexeme());
     // Match the assign context
     matchAndPop(TokenType.SPECIAL_ASSIGN);
 
@@ -1096,6 +1253,13 @@ public final class Parser
     // Initialize the returned factor to null
     AbstractSyntaxTreeNode factor = null;
 
+    if (currentTree != null)
+    {
+      factor = currentTree;
+      currentTree = null;
+      return factor;
+    }
+
     // Let's look at the current node to identify what should be performed:
     switch (currentToken.getType())
     {
@@ -1115,17 +1279,17 @@ public final class Parser
         break;
       }
 
-      // The current token is an identifier. The current processing will need to satisfy
-      // the var and call production rules. Thankfully the processID function will handle
-      // this for us.
+      // The current token is an identifier. The current processing will need to
+      // satisfy the var and call production rules. Thankfully the processID
+      // function will handle this for us.
       case VARIABLE_IDENTIFIER:
       {
         factor = processID(null);
         break;
       }
 
-      // The current token is none of the above options, so a syntax error has occurred.
-      // Log the syntax error and return null.
+      // The current token is none of the above options, so a syntax error has
+      // occurred. Log the syntax error and return null.
       default:
       {
         logSyntaxError();
@@ -1210,6 +1374,11 @@ public final class Parser
     return expression;
   }
 
+  /**
+   * Process an if-statement
+   *
+   * @return The processed IfStatementNode
+   */
   private IfStatementNode processIf()
   {
     // Create the if statement
@@ -1275,6 +1444,11 @@ public final class Parser
     return ifStatement;
   }
 
+  /**
+   * Process a while-loop
+   *
+   * @return The processed WhileStatementNode
+   */
   private WhileStatementNode processWhile()
   {
     // Create the while statement
@@ -1314,6 +1488,11 @@ public final class Parser
     return whileStatement;
   }
 
+  /**
+   * Process a return statement
+   *
+   * @return The processed ReturnStatementNode
+   */
   private ReturnStatementNode processReturn()
   {
     // Create the return statement
@@ -1348,7 +1527,9 @@ public final class Parser
   /**
    * Attempt to match the current token type with the expected token
    * type. If a match occurs, the token list will be moved forward by
-   * one token. If a match fails, a syntax error will be reported.
+   * one token. If a match fails, a syntax error will be reported. Note
+   * that, as a result of the syntax error reporting, the token will still
+   * advance.
    *
    * @param expected The expected token type
    */
@@ -1360,7 +1541,10 @@ public final class Parser
     }
     else
     {
-      currentToken = tokenList.pop();
+      if (!tokenList.isEmpty())
+      {
+        currentToken = tokenList.pop();
+      }
     }
   }
 
@@ -1374,28 +1558,61 @@ public final class Parser
     return currentToken.getType() == expected;
   }
 
+  /**
+   * Attempt to match the next token in the list (actually, the current head)
+   *
+   * @param expected The expected type
+   * @return The result of the comparison
+   */
   private boolean matchNext(final TokenType expected)
   {
     return tokenList.peek().getType() == expected;
   }
 
+  /**
+   * Log a syntax error based on the expectation of a particular token type
+   * @param token
+   * @param expected
+   */
   private void logSyntaxError(final Token token, final TokenType expected)
   {
     logSyntaxError(token, String.format("Expected %s", expected.toString()));
   }
 
-  private void logSyntaxError(final Token token, final String expected)
+  /**
+   * Log a syntax error with a custom string
+   * @param token The token be performing the error on
+   * @param message The message to be reporting with the syntax error
+   */
+  private void logSyntaxError(final Token token, final String message)
   {
     System.err.printf("SYNTAX ERROR (Line %d) - Unexpected Token %s | %s\n",
-        token.getLineNumber(), token.getType().toString(), expected);
+        token.getLineNumber(), token.getType().toString(), message);
+
+    fatalError = true;
   }
 
+  /**
+   * Log a syntax error with no expected token message
+   */
   private void logSyntaxError()
   {
     System.err.printf("SYNTAX ERROR (Line %d) - Unexpected Token %s\n",
         currentToken.getLineNumber(), currentToken.getType().toString());
+
+    fatalError = true;
+
+    // Advance to the next token to ensure processing continues
+    matchAndPop(currentToken.getType());
   }
 
+  /**
+   * Perform a recursive print on the provided abstract syntax tree node. Meta
+   * information about the nodes are also printed in a tabbed hierarchy.
+   *
+   * @param tree The current tree to recursively print
+   * @param tabLevel The current level of tabbed identation
+   */
   private void printSyntaxTree(final AbstractSyntaxTreeNode tree, int tabLevel)
   {
     if (tree == null)

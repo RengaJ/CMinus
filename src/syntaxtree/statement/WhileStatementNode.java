@@ -7,7 +7,7 @@ import tokens.TokenType;
  * Concrete class representing a while-statement in the abstract
  * syntax tree
  */
-public class WhileStatementNode extends StatementNode
+public final class WhileStatementNode extends StatementNode
 {
   /**
    * Full constructor for the WhileStatementNode

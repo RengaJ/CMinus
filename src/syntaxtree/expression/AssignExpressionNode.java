@@ -8,7 +8,7 @@ import tokens.TokenType;
  * The concrete class that represents an assignment statement in the
  * abstract syntax tree
  */
-public class AssignExpressionNode extends ExpressionNode
+public final class AssignExpressionNode extends ExpressionNode
 {
   /**
    * Full constructor for the AssignExpressionNode

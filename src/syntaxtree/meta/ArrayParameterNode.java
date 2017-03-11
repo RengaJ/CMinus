@@ -7,7 +7,7 @@ import tokens.TokenType;
  * Concrete class representing an array parameter node in the
  * abstract syntax tree
  */
-public class ArrayParameterNode extends ParameterNode
+public final class ArrayParameterNode extends ParameterNode
 {
   /**
    * Full constructor for the ArrayParameterNode
@@ -19,11 +19,11 @@ public class ArrayParameterNode extends ParameterNode
 
   /**
    * Get the enumerated type of the current Abstract Syntax Tree node
-   * @return
+   * @return META_ARRAY_PARAMETER
    */
   @Override
   public ASTNodeType getNodeType()
   {
-    return null;
+    return ASTNodeType.META_ARRAY_PARAMETER;
   }
 }

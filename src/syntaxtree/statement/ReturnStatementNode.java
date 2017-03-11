@@ -7,7 +7,7 @@ import tokens.TokenType;
  * Concrete class representing the return statement node
  * in the abstract syntax tree.
  */
-public class ReturnStatementNode extends StatementNode
+public final class ReturnStatementNode extends StatementNode
 {
   /**
    * Full constructor for the ReturnStatementNode

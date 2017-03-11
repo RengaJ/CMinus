@@ -7,7 +7,7 @@ import tokens.TokenType;
  * Concrete class representing an array identifier expression node
  * in the abstract syntax tree
  */
-public class ArrayIDExpressionNode extends ExpressionNode
+public final class ArrayIDExpressionNode extends ExpressionNode
 {
   /**
    * Full constructor for the ArrayIDExpressionNode

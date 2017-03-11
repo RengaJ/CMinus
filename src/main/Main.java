@@ -156,9 +156,10 @@ public final class Main
 
       ArrayDeque<Token> tokens = scanner.scanForTokens(sourceFile);
 
-      Parser parser = new Parser();
-
-      AbstractSyntaxTreeNode ast = parser.parse(tokens);
+      if (!CompilerFlags.NoParser)
+      {
+        new Parser().parse(tokens);
+      }
 
       System.out.println("Compilation Completed.");
     }

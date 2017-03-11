@@ -17,6 +17,7 @@ public enum ASTNodeType
   META_FUNCTION,               // Function Block ( void main() { ... } )
   META_PARAMETER,              // Function Parameter ( ...(int x) )
   // Statement Node Types
+  STATEMENT_ARRAY_DECLARATION, // Array Variable Declaration ( int x[NUM]; )
   STATEMENT_ASSIGN,            // Assignment Statement ( x = ... )
   STATEMENT_IF,                // If-Statement ( if (...) { ... } [else { ... }] )
   STATEMENT_RETURN,            // Return Statement ( return [...]; )
