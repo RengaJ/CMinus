@@ -1,5 +1,6 @@
 package parser;
 
+import globals.CompilerFlags;
 import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
 import syntaxtree.expression.*;
@@ -43,7 +44,7 @@ public final class Parser
   }
 
   /**
-   * Method stub for main parsing operation.
+   * Main parsing operation.
    *
    * @param tokenList The list of tokens to parse (obtained from the
    *                  Scanner)
@@ -59,7 +60,14 @@ public final class Parser
     // and remove it from the list
     currentToken = this.tokenList.pop();
 
-    return createSyntaxTree();
+    AbstractSyntaxTreeNode tree = createSyntaxTree();
+
+    if (CompilerFlags.TraceParser)
+    {
+      printSyntaxTree(tree, 0);
+    }
+
+    return tree;
   }
 
   private AbstractSyntaxTreeNode createSyntaxTree()
@@ -942,6 +950,7 @@ public final class Parser
            (additiveExp.getTokenType() == TokenType.SPECIAL_MINUS)))
       {
         OperationExpressionNode newOpNode = new OperationExpressionNode();
+        newOpNode.setName      (additiveExp.getName());
         newOpNode.setLineNumber(additiveExp.getLineNumber());
         newOpNode.setTokenType (additiveExp.getTokenType());
         newOpNode.setType      (additiveExp.getType());
@@ -1052,6 +1061,7 @@ public final class Parser
            (termExp.getTokenType() == TokenType.SPECIAL_DIVIDE)))
       {
         OperationExpressionNode newOpNode = new OperationExpressionNode();
+        newOpNode.setName      (termExp.getName());
         newOpNode.setLineNumber(termExp.getLineNumber());
         newOpNode.setTokenType (termExp.getTokenType());
         newOpNode.setType      (termExp.getType());
@@ -1208,6 +1218,7 @@ public final class Parser
     // Fill out the node with as much information as possible:
     // > The line number of the node
     // > The token type will be RESERVED_WHILE
+    ifStatement.setName      (currentToken.getLexeme());
     ifStatement.setLineNumber(currentToken.getLineNumber());
     ifStatement.setTokenType (TokenType.RESERVED_IF);
 
@@ -1272,6 +1283,7 @@ public final class Parser
     // Fill out the node with as much information as possible:
     // > The line number of the node
     // > The token type will be RESERVED_WHILE
+    whileStatement.setName      (currentToken.getLexeme());
     whileStatement.setLineNumber(currentToken.getLineNumber());
     whileStatement.setTokenType (TokenType.RESERVED_WHILE);
 
@@ -1310,6 +1322,7 @@ public final class Parser
     // Fill out the node with as much information as possible:
     // > The line number of the node
     // > The token type will be RESERVED_RETURN
+    returnStatement.setName      (currentToken.getLexeme());
     returnStatement.setLineNumber(currentToken.getLineNumber());
     returnStatement.setTokenType (TokenType.RESERVED_RETURN);
 
@@ -1381,5 +1394,53 @@ public final class Parser
   {
     System.err.printf("SYNTAX ERROR (Line %d) - Unexpected Token %s\n",
         currentToken.getLineNumber(), currentToken.getType().toString());
+  }
+
+  private void printSyntaxTree(final AbstractSyntaxTreeNode tree, int tabLevel)
+  {
+    if (tree == null)
+    {
+      System.out.println("<empty>");
+    }
+
+    String tabString;
+
+    if (tabLevel == 0)
+    {
+      tabString = "";
+    }
+    else
+    {
+      StringBuilder tabBuilder = new StringBuilder();
+      for (int i = 0; i < tabLevel; i++)
+      {
+        tabBuilder.append('\t');
+      }
+
+      tabString = tabBuilder.toString();
+    }
+
+    // Print out the current tree's properties (name, number of children, etc...)
+    System.out.printf("%sNode Type: %s\n", tabString, tree.getNodeType().toString());
+    System.out.printf("%sToken Type: %s\n",
+        tabString, tree.getTokenType().toString());
+    System.out.printf("%sName: %s\n", tabString, tree.getName());
+    System.out.printf("%sValue: %d\n", tabString, tree.getValue());
+    System.out.printf("%sNode Class: %s\n",
+        tabString, tree.getType().getCanonicalName());
+    System.out.printf("%sLine Number: %d\n", tabString, tree.getLineNumber());
+    System.out.printf("%sNumber of Children: %d\n", tabString, tree.getChildCount());
+    System.out.printf("%sSibling Present? %s\n",
+        tabString, tree.hasSibling() ? "Yes" : "No");
+    for (int i = 1; i <= tree.getChildCount(); i++)
+    {
+      System.out.printf("%sChild %d:\n", tabString, i);
+      printSyntaxTree(tree.getChild(i-1), tabLevel + 1);
+    }
+    if (tree.hasSibling())
+    {
+      System.out.printf("%sSibling:\n", tabString);
+      printSyntaxTree(tree.getSibling(), tabLevel + 1);
+    }
   }
 }
