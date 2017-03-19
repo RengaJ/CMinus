@@ -177,7 +177,7 @@ public final class Main
           SemanticAnalyzer analyzer = new SemanticAnalyzer();
 
           SymbolTable table = analyzer.analyze(tree);
-          
+
           System.out.println("Analyzer Complete");
 
           if (analyzer.didErrorOccur())

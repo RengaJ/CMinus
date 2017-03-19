@@ -1,5 +1,6 @@
 package analyzer;
 
+import analyzer.symbol.SymbolTableCode;
 import analyzer.symbol.table.FunctionSymbolTable;
 import analyzer.symbol.table.SymbolTable;
 import globals.CompilerFlags;
@@ -42,13 +43,7 @@ public final class SemanticAnalyzer
 
     errorOccurred = false;
 
-    AbstractSyntaxTreeNode currentNode = tree;
-    processNode(currentNode, GLOBAL_SCOPE);
-    while (currentNode.hasSibling())
-    {
-      currentNode = currentNode.getSibling();
-      processNode(currentNode, GLOBAL_SCOPE);
-    }
+    processTree(tree, GLOBAL_SCOPE);
 
     return symbolTable;
   }
@@ -58,6 +53,18 @@ public final class SemanticAnalyzer
     return errorOccurred;
   }
 
+  private void processTree(final AbstractSyntaxTreeNode tree, final String scope)
+  {
+    processNode(tree, scope);
+
+    AbstractSyntaxTreeNode currentNode = tree;
+    while (currentNode.hasSibling())
+    {
+      currentNode = currentNode.getSibling();
+      processNode(currentNode, scope);
+    }
+  }
+
   private void processNode(final AbstractSyntaxTreeNode node, final String scope)
   {
     // Perform different operations based on the type of the node
@@ -65,7 +72,8 @@ public final class SemanticAnalyzer
     if (CompilerFlags.TraceAnalyzer)
     {
       System.out.println("Analyzing " + node.getName() +
-                         "\tScope = \"" + scope + "\"");
+                         "\tScope = \"" + scope + "\"" +
+                         "\tNode Type = \"" + node.getNodeType().toString() + "\"");
     }
 
     switch (node.getNodeType())
@@ -104,12 +112,14 @@ public final class SemanticAnalyzer
       case META_FUNCTION:
       {
         // TODO: Implement Function Declaration Processing
+        processFunctionDeclaration(node, scope);
         break;
       }
       // If the node is a simple parameter ( int ID )...
       case META_PARAMETER:
       {
         // TODO: Implement Simple Parameter Processing
+        processSimpleParameter(node, scope);
         break;
       }
       // If the node is a local array declaration ( int x[NUM] )...
@@ -160,6 +170,48 @@ public final class SemanticAnalyzer
   private void processFunctionDeclaration(final AbstractSyntaxTreeNode node,
                                           final String scope)
   {
+    symbolTable.updateScope(scope, node, true);
 
+    String newScope;
+    if (scope.equals(GLOBAL_SCOPE))
+    {
+      newScope = node.getName();
+    }
+    else
+    {
+      newScope = String.format("%s.%s", scope, node.getName());
+    }
+
+    // Process parameters
+    processTree(node.getChild(0), newScope);
+
+    // Process the function body
+    processTree(node.getChild(1), newScope);
+  }
+
+  private void processSimpleParameter(final AbstractSyntaxTreeNode node,
+                                      final String scope)
+  {
+    if (node.getType() == Void.class)
+    {
+      if (node.hasSibling())
+      {
+        System.err.println("ERROR - Function definitions with 'void' cannot have multiple arguments.");
+        errorOccurred = true;
+      }
+    }
+    else
+    {
+      reportSemanticError(symbolTable.updateRecord(scope, node, false));
+    }
+  }
+
+  private void reportSemanticError(final SymbolTableCode errorCode)
+  {
+    if (errorCode != SymbolTableCode.UPDATE_OK)
+    {
+      System.err.printf("SEMANTIC ERROR - %s\n", errorCode.toString());
+      errorOccurred = true;
+    }
   }
 }
