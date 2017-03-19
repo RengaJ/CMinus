@@ -1,5 +1,8 @@
 package main;
 
+import analyzer.SemanticAnalyzer;
+import analyzer.symbol.SymbolItem;
+import analyzer.symbol.table.SymbolTable;
 import globals.CompilerFlags;
 import parser.Parser;
 import scanner.Scanner;
@@ -158,7 +161,33 @@ public final class Main
 
       if (!CompilerFlags.NoParser)
       {
-        new Parser().parse(tokens);
+        Parser parser = new Parser();
+
+        AbstractSyntaxTreeNode tree = parser.parse(tokens);
+        if (parser.syntaxErrorOccurred())
+        {
+          System.err.println("Errors occurred during parsing.");
+          System.err.println("Terminating compilation.");
+
+          System.exit(-1);
+        }
+
+        if (!CompilerFlags.NoAnalyzer)
+        {
+          SemanticAnalyzer analyzer = new SemanticAnalyzer();
+
+          SymbolTable table = analyzer.analyze(tree);
+          
+          System.out.println("Analyzer Complete");
+
+          if (analyzer.didErrorOccur())
+          {
+            System.err.println("Errors occurred during semantic analysis.");
+            System.err.println("Terminating compilation.");
+
+            System.exit(-1);
+          }
+        }
       }
 
       System.out.println("Compilation Completed.");

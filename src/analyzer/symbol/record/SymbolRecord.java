@@ -8,9 +8,9 @@ import analyzer.symbol.SymbolItem;
  */
 public abstract class SymbolRecord extends SymbolItem
 {
-  public SymbolRecord()
+  public SymbolRecord(final int declaredLine, final Class<?> classType)
   {
-    super(-1, null);
+    super(declaredLine, classType);
   }
 
   public abstract boolean isArray();

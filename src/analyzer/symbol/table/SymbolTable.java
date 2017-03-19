@@ -2,7 +2,11 @@ package analyzer.symbol.table;
 
 import analyzer.symbol.SymbolItem;
 import analyzer.symbol.SymbolItemType;
+import analyzer.symbol.SymbolTableCode;
+import analyzer.symbol.record.ArraySymbolRecord;
+import analyzer.symbol.record.SimpleSymbolRecord;
 import analyzer.symbol.record.SymbolRecord;
+import syntaxtree.AbstractSyntaxTreeNode;
 
 import java.util.HashMap;
 
@@ -118,24 +122,215 @@ public class SymbolTable extends SymbolItem
   }
 
   /**
-   * Add a record to the symbol table, given a particular scope. Note
-   * that if the provided scope does not exist, the record will not
+   * Add or update a record to the symbol table, given a particular scope.
+   * Note that if the provided scope does not exist, the record will not
    * added to the symbol table.
    *
-   * @param scope
-   * @param identifier
-   * @param record
+   * @param scope       The scope to traverse down to
+   * @param identifier  The AST node that will be used to create / update
+   *                    the (potentially) new record
+   * @param isArray     An indicator to determine if the AST node is an array
+   *
+   * @return An error code enumeration providing details on what occurred during
+   *         attempt to update/add a record
    */
-  public void addRecord(final String scope,
-                        final String identifier,
-                        final SymbolRecord record)
+  public SymbolTableCode updateRecord(final String scope,
+                                      final AbstractSyntaxTreeNode identifier,
+                                      final boolean isArray)
   {
+    SymbolItem record = table.get(identifier.getName());
+    // Check to see if additional traversal is needed
+    if (scope.isEmpty())
+    {
+      // If the identifier cannot be found, a new record should be made
+      if (record == null)
+      {
+        // If the record to be made is an array type
+        if (isArray)
+        {
+          // Add a new array symbol record
+          table.put(identifier.getName(),
+              new ArraySymbolRecord(identifier.getLineNumber(),
+                                    identifier.getType()));
+        }
+        else
+        {
+          // Add a new simple symbol record
+          table.put(identifier.getName(),
+                    new SimpleSymbolRecord(identifier.getLineNumber(),
+                                           identifier.getType()));
+        }
+        // The record was properly added
+        return SymbolTableCode.UPDATE_OK;
+      }
+      // A record has previously been recorded. Time to make sure
+      // the record matches the desired type
+      else
+      {
+        // If either:
+        //     1. We want an array and the record is an array record
+        //                            OR
+        //     2. We don't want an array and the record is a simple record
+        // Add the current line to the record and update the table with the
+        // new record contents.
+        if ((isArray &&
+            record.getSymbolType() == SymbolItemType.SYMBOL_RECORD_ARRAY) ||
+            (!isArray &&
+                record.getSymbolType() == SymbolItemType.SYMBOL_RECORD_SIMPLE))
+        {
+          record.addLine(identifier.getLineNumber());
+          table.put(identifier.getName(), record);
+          return SymbolTableCode.UPDATE_OK;
+        }
+      }
+
+      return SymbolTableCode.UPDATE_NOT_FOUND;
+    }
+
+    String currentScope = SymbolTableUtilities.GetCurrentScope(scope);
+    String remainingScope = SymbolTableUtilities.GetRemainingScope(scope);
+
+    // If the scope item doesn't exist, exit early
+    if (!table.containsKey(currentScope))
+    {
+      return SymbolTableCode.UPDATE_NO_SCOPE;
+    }
+
+    SymbolTableCode errorCode;
+    SymbolItem scopeItem = table.get(currentScope);
+    if ((scopeItem.getSymbolType() == SymbolItemType.SYMBOL_TABLE_FUNCTION) ||
+        (scopeItem.getSymbolType() == SymbolItemType.SYMBOL_TABLE_SCOPE))
+    {
+      errorCode = ((SymbolTable)scopeItem).updateRecord(remainingScope,
+                                                        identifier,
+                                                        isArray);
+    }
+    else
+    {
+      return SymbolTableCode.UPDATE_SEMANTIC_FAILURE;
+    }
+
+    if (errorCode != SymbolTableCode.UPDATE_OK && record != null)
+    {
+      // If either:
+      //     1. We want an array and the record is an array record
+      //                            OR
+      //     2. We don't want an array and the record is a simple record
+      // Add the current line to the record and update the table with the
+      // new record contents.
+      if ((isArray &&
+          record.getSymbolType() == SymbolItemType.SYMBOL_RECORD_ARRAY) ||
+          (!isArray &&
+              record.getSymbolType() == SymbolItemType.SYMBOL_RECORD_SIMPLE))
+      {
+        record.addLine(identifier.getLineNumber());
+        table.put(identifier.getName(), record);
+        return SymbolTableCode.UPDATE_OK;
+      }
+    }
+
+    // Only thing left to do is report a semantic failure
+    return errorCode;
   }
 
-  public void addScope(final String scope,
-                       final String identifier,
-                       final SymbolTable symbolTable)
+  public SymbolTableCode updateScope(final String scope,
+                                     final AbstractSyntaxTreeNode scopeIdentifier,
+                                     final boolean isFunction)
   {
+    SymbolItem scopeRecord = table.get(scopeIdentifier.getName());
+    // Check to see if additional traversal is needed
+    if (scope.isEmpty())
+    {
+      // If the identifier cannot be found, a new record should be made
+      if (scopeRecord == null)
+      {
+        // If the record to be made is an array type
+        if (isFunction)
+        {
+          // Add a new array symbol record
+          table.put(scopeIdentifier.getName(),
+              new FunctionSymbolTable(
+                  scopeIdentifier.getLineNumber(),
+                  scopeIdentifier.getType()));
+        }
+        else
+        {
+          // Add a new simple symbol record
+          table.put(scopeIdentifier.getName(),
+              new SymbolTable(
+                  scopeIdentifier.getLineNumber(),
+                  scopeIdentifier.getType()));
+        }
+        // The record was properly added
+        return SymbolTableCode.UPDATE_OK;
+      }
+      // A record has previously been recorded. Time to make sure
+      // the record matches the desired type
+      else
+      {
+        // If either:
+        //     1. We want an array and the record is an array record
+        //                            OR
+        //     2. We don't want an array and the record is a simple record
+        // Add the current line to the record and update the table with the
+        // new record contents.
+        if ((isFunction &&
+            scopeRecord.getSymbolType() == SymbolItemType.SYMBOL_TABLE_FUNCTION) ||
+            (!isFunction &&
+                scopeRecord.getSymbolType() == SymbolItemType.SYMBOL_TABLE_SCOPE))
+        {
+          scopeRecord.addLine(scopeIdentifier.getLineNumber());
+          table.put(scopeIdentifier.getName(), scopeRecord);
+          return SymbolTableCode.UPDATE_OK;
+        }
+      }
 
+      return SymbolTableCode.UPDATE_NOT_FOUND;
+    }
+
+    String currentScope = SymbolTableUtilities.GetCurrentScope(scope);
+    String remainingScope = SymbolTableUtilities.GetRemainingScope(scope);
+
+    // If the scope item doesn't exist, exit early
+    if (!table.containsKey(currentScope))
+    {
+      return SymbolTableCode.UPDATE_NO_SCOPE;
+    }
+
+    SymbolTableCode errorCode;
+    SymbolItem scopeItem = table.get(currentScope);
+    if ((scopeItem.getSymbolType() == SymbolItemType.SYMBOL_TABLE_FUNCTION) ||
+        (scopeItem.getSymbolType() == SymbolItemType.SYMBOL_TABLE_SCOPE))
+    {
+      errorCode = ((SymbolTable)scopeItem).updateScope(remainingScope,
+                                                       scopeIdentifier,
+                                                       isFunction);
+    }
+    else
+    {
+      return SymbolTableCode.UPDATE_SEMANTIC_FAILURE;
+    }
+
+    if (errorCode != SymbolTableCode.UPDATE_OK && scopeRecord != null)
+    {
+      // If either:
+      //     1. We want an array and the record is an array record
+      //                            OR
+      //     2. We don't want an array and the record is a simple record
+      // Add the current line to the record and update the table with the
+      // new record contents.
+      if ((isFunction &&
+          scopeRecord.getSymbolType() == SymbolItemType.SYMBOL_TABLE_FUNCTION) ||
+          (!isFunction &&
+              scopeRecord.getSymbolType() == SymbolItemType.SYMBOL_TABLE_SCOPE))
+      {
+        scopeRecord.addLine(scopeIdentifier.getLineNumber());
+        table.put(scopeIdentifier.getName(), scopeRecord);
+        return SymbolTableCode.UPDATE_OK;
+      }
+    }
+
+    // Only thing left to do is report a semantic failure
+    return errorCode;
   }
 }

@@ -7,6 +7,11 @@ import analyzer.symbol.SymbolItemType;
  */
 public final class ArraySymbolRecord extends SymbolRecord
 {
+  public ArraySymbolRecord(int declaredLine, Class<?> classType)
+  {
+    super(declaredLine, classType);
+  }
+
   @Override
   public SymbolItemType getSymbolType()
   {
