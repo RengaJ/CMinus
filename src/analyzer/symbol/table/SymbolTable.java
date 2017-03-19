@@ -18,7 +18,7 @@ import java.util.HashMap;
  * to be made. For example, a function declaration would have it's own scope, and can
  * easily be identified through the use of another SymbolTable.
  */
-public abstract class SymbolTable extends SymbolItem
+public class SymbolTable extends SymbolItem
 {
   /**
    * The internal HashMap being wrapped by the SymbolTable
@@ -33,6 +33,17 @@ public abstract class SymbolTable extends SymbolItem
     super(declaredLine, type);
 
     table = new HashMap<>();
+  }
+
+  /**
+   * Get the symbol type associated with this particular realization of SymbolItem
+   *
+   * @return The enumeration that identifies the symbol item
+   */
+  @Override
+  public SymbolItemType getSymbolType()
+  {
+    return SymbolItemType.SYMBOL_TABLE_SCOPE;
   }
 
   /**
@@ -72,25 +83,9 @@ public abstract class SymbolTable extends SymbolItem
     // Recursive case:
     // Look for remaining scopes and continue the descent from there
     SymbolItem item = null;
-    String currentScope;
-    String remainingScope;
-    int firstScopeEnd = scope.indexOf('.');
 
-    // Check to see if there is only one scope remaining in the list of scopes
-    if (firstScopeEnd == -1)
-    {
-      // If so, the current scope is the entire scope string, and the remaining
-      // scope is the empty string (useful for the base-case)
-      currentScope = scope;
-      remainingScope = "";
-    }
-    // Otherwise multiple scopes remain in the list of scopes
-    else
-    {
-      // Split the first and remaining scopes from each other
-      currentScope = scope.substring(0, firstScopeEnd);
-      remainingScope = scope.substring(firstScopeEnd + 1);
-    }
+    String currentScope = SymbolTableUtilities.GetCurrentScope(scope);
+    String remainingScope = SymbolTableUtilities.GetRemainingScope(scope);
 
     // Get the current scope from the symbol table (hopefully it exists!)
     SymbolItem scopeItem = table.get(currentScope);
@@ -122,25 +117,25 @@ public abstract class SymbolTable extends SymbolItem
     return item;
   }
 
-  public void addRecord(final String identifier, final SymbolRecord record)
+  /**
+   * Add a record to the symbol table, given a particular scope. Note
+   * that if the provided scope does not exist, the record will not
+   * added to the symbol table.
+   *
+   * @param scope
+   * @param identifier
+   * @param record
+   */
+  public void addRecord(final String scope,
+                        final String identifier,
+                        final SymbolRecord record)
   {
-//    if (!table.containsKey(identifier))
-//    {
-//      SymbolRecordList recordList = new SymbolRecordList();
-//
-//      recordList.add(record);
-//      table.put(identifier, recordList);
-//    }
-//    else
-//    {
-//      SymbolItem item = table.get(identifier);
-//      if (item.getSymbolType() == SymbolItemType.SYMBOL_RECORD)
-//      {
-//        SymbolRecordList list = (SymbolRecordList)item;
-//        list.add(record);
-//
-//        table.put(identifier, list);
-//      }
-//    }
+  }
+
+  public void addScope(final String scope,
+                       final String identifier,
+                       final SymbolTable symbolTable)
+  {
+
   }
 }

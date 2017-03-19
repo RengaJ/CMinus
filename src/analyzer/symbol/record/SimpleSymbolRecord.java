@@ -12,4 +12,10 @@ public final class SimpleSymbolRecord extends SymbolRecord
   {
     return SymbolItemType.SYMBOL_RECORD_SIMPLE;
   }
+
+  @Override
+  public boolean isArray()
+  {
+    return false;
+  }
 }

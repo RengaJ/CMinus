@@ -12,4 +12,6 @@ public abstract class SymbolRecord extends SymbolItem
   {
     super(-1, null);
   }
+
+  public abstract boolean isArray();
 }

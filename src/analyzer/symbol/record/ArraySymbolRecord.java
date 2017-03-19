@@ -12,4 +12,10 @@ public final class ArraySymbolRecord extends SymbolRecord
   {
     return SymbolItemType.SYMBOL_RECORD_ARRAY;
   }
+
+  @Override
+  public boolean isArray()
+  {
+    return true;
+  }
 }
