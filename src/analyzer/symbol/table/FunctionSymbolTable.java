@@ -9,7 +9,7 @@ import java.util.ArrayList;
  * contains fields for managing parameters and their counts. These SymbolTables
  * should be used when encountering a function definition node from the parser.
  */
-public class FunctionSymbolTable extends SymbolTable
+public final class FunctionSymbolTable extends SymbolTable
 {
   /**
    * An integer representation of the number of parameters supported by this

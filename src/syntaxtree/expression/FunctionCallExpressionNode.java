@@ -7,7 +7,7 @@ import tokens.TokenType;
  * Concrete class that represents a function call in the abstract syntax
  * tree
  */
-public class FunctionCallExpressionNode extends ExpressionNode
+public final class FunctionCallExpressionNode extends ExpressionNode
 {
   /**
    * Full constructor for the FunctionCallExpressionNode

@@ -5,7 +5,7 @@ import analyzer.symbol.SymbolItemType;
 /**
  *
  */
-public class ArraySymbolRecord extends SymbolRecord
+public final class ArraySymbolRecord extends SymbolRecord
 {
   @Override
   public SymbolItemType getSymbolType()
