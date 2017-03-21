@@ -5,6 +5,7 @@ import analyzer.symbol.table.FunctionSymbolTable;
 import analyzer.symbol.table.SymbolTable;
 import globals.CompilerFlags;
 import syntaxtree.AbstractSyntaxTreeNode;
+import syntaxtree.expression.IDExpressionNode;
 
 /**
  *
@@ -15,6 +16,8 @@ public final class SemanticAnalyzer
 
   private final String GLOBAL_SCOPE = "";
 
+  private int anonymousScopeCount;
+
   private boolean errorOccurred;
 
   public SemanticAnalyzer()
@@ -22,10 +25,13 @@ public final class SemanticAnalyzer
     symbolTable = null;
 
     errorOccurred = false;
+
+    anonymousScopeCount = 0;
   }
 
   public SymbolTable analyze(final AbstractSyntaxTreeNode tree)
   {
+    anonymousScopeCount = 0;
     // Create the global symbol table that will be used to keep
     // track of everything in the semantic analysis
     symbolTable = new SymbolTable(-1, null);
@@ -45,6 +51,8 @@ public final class SemanticAnalyzer
 
     processTree(tree, GLOBAL_SCOPE);
 
+    symbolTable.removeAllEmpty();
+
     return symbolTable;
   }
 
@@ -55,18 +63,20 @@ public final class SemanticAnalyzer
 
   private void processTree(final AbstractSyntaxTreeNode tree, final String scope)
   {
-    processNode(tree, scope);
-
     AbstractSyntaxTreeNode currentNode = tree;
-    while (currentNode.hasSibling())
+    while (currentNode != null)
     {
-      currentNode = currentNode.getSibling();
       processNode(currentNode, scope);
+      currentNode = currentNode.getSibling();
     }
   }
 
   private void processNode(final AbstractSyntaxTreeNode node, final String scope)
   {
+    if (node == null)
+    {
+      return;
+    }
     // Perform different operations based on the type of the node
     // being processed
     if (CompilerFlags.TraceAnalyzer)
@@ -138,6 +148,7 @@ public final class SemanticAnalyzer
       case STATEMENT_IF:
       {
         // TODO: Implement If-Statement Processing
+        processIfStatement(node, scope);
         break;
       }
       // If the node is a return statement...
@@ -204,6 +215,43 @@ public final class SemanticAnalyzer
     {
       reportSemanticError(symbolTable.updateRecord(scope, node, false));
     }
+  }
+
+  private void processIfStatement(final AbstractSyntaxTreeNode node,
+                                  final String scope)
+  {
+    if (node.getChild(0).getType() != Boolean.class)
+    {
+      reportSemanticError(SymbolTableCode.UPDATE_SEMANTIC_FAILURE);
+    }
+
+    processNode(node.getChild(0), scope);
+
+    String ifScope = String.format("if_%d", ++anonymousScopeCount);
+
+    AbstractSyntaxTreeNode ifNode = new IDExpressionNode();
+    ifNode.setName(ifScope);
+
+    symbolTable.updateScope(scope, ifNode, false);
+
+    String newScope = String.format("%s.%s", scope, ifScope);
+
+    processNode(node.getChild(1), newScope);
+
+    if (node.getChild(2) == null)
+    {
+      return;
+    }
+
+    AbstractSyntaxTreeNode elseNode = new IDExpressionNode();
+    String elseScope = String.format("else_%d", anonymousScopeCount);
+    elseNode.setName(elseScope);
+
+    symbolTable.updateScope(scope, elseNode, false);
+
+    newScope = String.format("%s.%s", scope, elseScope);
+
+    processNode(node.getChild(2), newScope);
   }
 
   private void reportSemanticError(final SymbolTableCode errorCode)

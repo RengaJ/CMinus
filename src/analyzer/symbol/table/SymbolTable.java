@@ -8,6 +8,7 @@ import analyzer.symbol.record.SimpleSymbolRecord;
 import analyzer.symbol.record.SymbolRecord;
 import syntaxtree.AbstractSyntaxTreeNode;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
@@ -332,5 +333,40 @@ public class SymbolTable extends SymbolItem
 
     // Only thing left to do is report a semantic failure
     return errorCode;
+  }
+
+  public boolean isEmpty()
+  {
+    return table.isEmpty() && lines.isEmpty();
+  }
+
+  public void removeAllEmpty()
+  {
+    if (isEmpty())
+    {
+      return;
+    }
+
+    ArrayList<String> keysToDelete = new ArrayList<>();
+    for (final String keyName : table.keySet())
+    {
+      SymbolItem item = table.get(keyName);
+      if (item.getSymbolType() == SymbolItemType.SYMBOL_TABLE_SCOPE ||
+          item.getSymbolType() == SymbolItemType.SYMBOL_TABLE_FUNCTION)
+      {
+        SymbolTable symbolTable = (SymbolTable)item;
+        if (symbolTable.isEmpty())
+        {
+          keysToDelete.add(keyName);
+          continue;
+        }
+        symbolTable.removeAllEmpty();
+      }
+    }
+
+    for (final String key : keysToDelete)
+    {
+      table.remove(key);
+    }
   }
 }
