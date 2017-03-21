@@ -592,8 +592,8 @@ public final class Parser
     // > The line number of the node
     // > The token type will be VARIABLE_IDENTIFIER
     // > The node type will be the current identifier type
-    arrayParameterNode.setName      (currentToken.getLexeme());
-    arrayParameterNode.setLineNumber(currentToken.getLineNumber());
+    arrayParameterNode.setName      (currentTree.getName());
+    arrayParameterNode.setLineNumber(currentTree.getLineNumber());
     arrayParameterNode.setTokenType (TokenType.VARIABLE_IDENTIFIER);
     arrayParameterNode.setType      (identifierType);
 

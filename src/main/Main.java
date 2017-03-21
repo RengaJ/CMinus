@@ -153,17 +153,20 @@ public final class Main
     // compilation execution (for the user's benefit)
     showCurrentFlags();
 
+    ArrayDeque<Token>      tokens;
+    AbstractSyntaxTreeNode tree        = null;
+    SymbolTable            symbolTable = null;
     try
     {
       Scanner scanner = new Scanner();
 
-      ArrayDeque<Token> tokens = scanner.scanForTokens(sourceFile);
+      tokens = scanner.scanForTokens(sourceFile);
 
       if (!CompilerFlags.NoParser)
       {
         Parser parser = new Parser();
 
-        AbstractSyntaxTreeNode tree = parser.parse(tokens);
+        tree = parser.parse(tokens);
         if (parser.syntaxErrorOccurred())
         {
           System.err.println("Errors occurred during parsing.");
@@ -171,25 +174,23 @@ public final class Main
 
           System.exit(-1);
         }
+      }
+      if (!CompilerFlags.NoAnalyzer)
+      {
+        SemanticAnalyzer analyzer = new SemanticAnalyzer();
 
-        if (!CompilerFlags.NoAnalyzer)
+        symbolTable = analyzer.analyze(tree);
+
+        System.out.println("Analyzer Complete");
+
+        if (analyzer.errorOccurred())
         {
-          SemanticAnalyzer analyzer = new SemanticAnalyzer();
+          System.err.println("Errors occurred during semantic analysis.");
+          System.err.println("Terminating compilation.");
 
-          SymbolTable table = analyzer.analyze(tree);
-
-          System.out.println("Analyzer Complete");
-
-          if (analyzer.didErrorOccur())
-          {
-            System.err.println("Errors occurred during semantic analysis.");
-            System.err.println("Terminating compilation.");
-
-            System.exit(-1);
-          }
+          System.exit(-1);
         }
       }
-
       System.out.println("Compilation Completed.");
     }
     catch (IOException ioe)

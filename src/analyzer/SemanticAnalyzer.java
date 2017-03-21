@@ -12,23 +12,41 @@ import syntaxtree.expression.IDExpressionNode;
  */
 public final class SemanticAnalyzer
 {
-  private SymbolTable symbolTable;
-
+  /** The global scope string */
   private final String GLOBAL_SCOPE = "";
 
+  /** Internally tracked symbol table (used during analysis procedure) */
+  private SymbolTable symbolTable;
+
+  /**
+   * The current count of anonymous scopes (if, else and while) for unique scope
+   * identification
+   */
   private int anonymousScopeCount;
 
+  /**
+   * A boolean flag used to indicate if an error occurred during the semantic
+   * analysis.
+   */
   private boolean errorOccurred;
 
+  /**
+   * Full constructor for the SemanticAnalyzer
+   */
   public SemanticAnalyzer()
   {
-    symbolTable = null;
-
-    errorOccurred = false;
-
+    symbolTable         = null;
+    errorOccurred       = false;
     anonymousScopeCount = 0;
   }
 
+  /**
+   * Given an abstract syntax tree, perform semantic analysis to produce a symbol
+   * table.
+   *
+   * @param tree The abstract syntax tree on which to perform the semantic analysis
+   * @return The newly created symbol table
+   */
   public SymbolTable analyze(final AbstractSyntaxTreeNode tree)
   {
     anonymousScopeCount = 0;
@@ -43,20 +61,32 @@ public final class SemanticAnalyzer
     // Add the output function call (assumes it's already defined)
     FunctionSymbolTable outputTable =
         new FunctionSymbolTable(-1, Void.class);
-    // The output function takes 1 argument, so we'll add it here
+    // The output function takes 1 argument, so we'll add it here. This is a special
+    // case of the addParameter function. This function should not be explicitly
+    // used.
     outputTable.addParameter(false);
     symbolTable.addScope("output", outputTable);
 
+    // Reset the errorOccurred flag from its previous value (hopefully false) to
+    // false. This prevents accidental false failures
     errorOccurred = false;
 
+    // Perform the actual processing
     processTree(tree, GLOBAL_SCOPE);
 
+    // Remove all unused scopes from the symbol table (empty scopes usually appear
+    // from the processing of if, else and while statements).
     symbolTable.removeAllEmpty();
 
+    // Return the completed symbol table
     return symbolTable;
   }
 
-  public boolean didErrorOccur()
+  /**
+   *
+   * @return
+   */
+  public boolean errorOccurred()
   {
     return errorOccurred;
   }
@@ -104,6 +134,7 @@ public final class SemanticAnalyzer
       case EXPRESSION_IDENTIFIER:
       {
         // TODO: Implement Simple Identifier Processing
+        reportSemanticError(symbolTable.updateRecord(scope, node, false));
         break;
       }
       // If the node is an operation ( ID + ID )...
@@ -121,14 +152,12 @@ public final class SemanticAnalyzer
       // If the node is a function declaration ( <type> ID( ... ) { ... } )...
       case META_FUNCTION:
       {
-        // TODO: Implement Function Declaration Processing
         processFunctionDeclaration(node, scope);
         break;
       }
       // If the node is a simple parameter ( int ID )...
       case META_PARAMETER:
       {
-        // TODO: Implement Simple Parameter Processing
         processSimpleParameter(node, scope);
         break;
       }
@@ -147,14 +176,13 @@ public final class SemanticAnalyzer
       // If the node is an if-statement...
       case STATEMENT_IF:
       {
-        // TODO: Implement If-Statement Processing
         processIfStatement(node, scope);
         break;
       }
       // If the node is a return statement...
       case STATEMENT_RETURN:
       {
-        // TODO: Implement Return Statement Processing
+        processNode(node.getChild(0), scope);
         break;
       }
       // If the node is a local declaration ( int x )...
@@ -231,12 +259,13 @@ public final class SemanticAnalyzer
 
     AbstractSyntaxTreeNode ifNode = new IDExpressionNode();
     ifNode.setName(ifScope);
+    ifNode.setLineNumber(node.getChild(1).getLineNumber());
 
     symbolTable.updateScope(scope, ifNode, false);
 
     String newScope = String.format("%s.%s", scope, ifScope);
 
-    processNode(node.getChild(1), newScope);
+    processTree(node.getChild(1), newScope);
 
     if (node.getChild(2) == null)
     {
@@ -246,12 +275,13 @@ public final class SemanticAnalyzer
     AbstractSyntaxTreeNode elseNode = new IDExpressionNode();
     String elseScope = String.format("else_%d", anonymousScopeCount);
     elseNode.setName(elseScope);
+    elseNode.setLineNumber(node.getChild(2).getLineNumber());
 
     symbolTable.updateScope(scope, elseNode, false);
 
     newScope = String.format("%s.%s", scope, elseScope);
 
-    processNode(node.getChild(2), newScope);
+    processTree(node.getChild(2), newScope);
   }
 
   private void reportSemanticError(final SymbolTableCode errorCode)

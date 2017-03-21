@@ -1,15 +1,12 @@
 package analyzer.symbol.table;
 
-import analyzer.symbol.SymbolItem;
-import analyzer.symbol.SymbolItemType;
-import analyzer.symbol.SymbolTableCode;
-import analyzer.symbol.record.ArraySymbolRecord;
-import analyzer.symbol.record.SimpleSymbolRecord;
-import analyzer.symbol.record.SymbolRecord;
+import analyzer.symbol.*;
+import analyzer.symbol.record.*;
 import syntaxtree.AbstractSyntaxTreeNode;
 
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Class that represents a Symbol Table data structure.
@@ -233,7 +230,20 @@ public class SymbolTable extends SymbolItem
     // Only thing left to do is report a semantic failure
     return errorCode;
   }
-
+  /**
+   * Add or update a scope to the symbol table, given a particular scope.
+   * Note that if the provided scope does not exist, the new scope will not
+   * added to the symbol table.
+   *
+   * @param scope            The scope to traverse down to
+   * @param scopeIdentifier  The AST node that will be used to create / update
+   *                         the (potentially) new scope
+   * @param isFunction       An indicator to determine if the scope to be created
+   *                         is a functional scope or a plain scope
+   *
+   * @return An error code enumeration providing details on what occurred during
+   *         attempt to update/add a scope
+   */
   public SymbolTableCode updateScope(final String scope,
                                      final AbstractSyntaxTreeNode scopeIdentifier,
                                      final boolean isFunction)
@@ -335,38 +345,57 @@ public class SymbolTable extends SymbolItem
     return errorCode;
   }
 
-  public boolean isEmpty()
+  /**
+   * Determine if the symbol table is considered empty. A symbol table is
+   * considered empty if both the internal table is empty and there are no
+   * usages of the scope
+   *
+   * @return A boolean value indicating if the above criteria are met
+   */
+  private boolean isEmpty()
   {
     return table.isEmpty() && lines.isEmpty();
   }
 
+  /**
+   * Recursively remove all of the empty tables from the current table. Note that
+   * records will not be affected.
+   */
   public void removeAllEmpty()
   {
+    // If the current table is empty, do nothing
     if (isEmpty())
     {
       return;
     }
 
-    ArrayList<String> keysToDelete = new ArrayList<>();
-    for (final String keyName : table.keySet())
+    // Create a new set of Strings that constitute the table's current key set. This
+    // is performed to be able to perform deletions on the table while processing
+    // each key.
+    Set<String> keys = new HashSet<>(table.keySet());
+    // Iterate over each key in the table's key set to look for symbol tables
+    for (final String keyName : keys)
     {
       SymbolItem item = table.get(keyName);
+      // Check to see if the current item is a symbol table
       if (item.getSymbolType() == SymbolItemType.SYMBOL_TABLE_SCOPE ||
           item.getSymbolType() == SymbolItemType.SYMBOL_TABLE_FUNCTION)
       {
+        // If a symbol table, perform the necessary casting to obtain a symbol table
+        // (FunctionalSymbolTable is a child of SymbolTable)
         SymbolTable symbolTable = (SymbolTable)item;
+
+        // Check to see if the symbol table is empty
         if (symbolTable.isEmpty())
         {
-          keysToDelete.add(keyName);
+          // If the symbol table is empty, delete the key from the table
+          table.remove(keyName);
           continue;
         }
+        // If the table is not empty, remove all of the empty entries in the symbol
+        // table (recursive call)
         symbolTable.removeAllEmpty();
       }
-    }
-
-    for (final String key : keysToDelete)
-    {
-      table.remove(key);
     }
   }
 }
