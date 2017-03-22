@@ -8,9 +8,20 @@ import analyzer.symbol.SymbolItem;
  */
 public abstract class SymbolRecord extends SymbolItem
 {
-  public SymbolRecord(final int declaredLine, final Class<?> classType)
+  private int memoryLocation;
+
+  public SymbolRecord(final int declaredLine,
+                      final Class<?> classType,
+                      final int memoryLocation)
   {
     super(declaredLine, classType);
+
+    this.memoryLocation = memoryLocation;
+  }
+
+  public int getMemoryLocation()
+  {
+    return memoryLocation;
   }
 
   public abstract boolean isArray();

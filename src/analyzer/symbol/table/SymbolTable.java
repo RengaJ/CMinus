@@ -2,6 +2,7 @@ package analyzer.symbol.table;
 
 import analyzer.symbol.*;
 import analyzer.symbol.record.*;
+import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
 
 import java.util.HashMap;
@@ -57,6 +58,106 @@ public class SymbolTable extends SymbolItem
   public void addScope(final String scopeName, final SymbolTable scopeTable)
   {
     table.put(scopeName, scopeTable);
+  }
+
+  public SymbolTableCode addRecord(final String scope,
+                                   final AbstractSyntaxTreeNode node,
+                                   final int memoryLocation)
+  {
+    // Base Condition:
+    // Scope is empty
+    if (scope.isEmpty())
+    {
+      // At the base condition, try to find the identifier in the current scope
+      // (the identifier should not be able to be located)
+      final String identifier = node.getName();
+
+      // If the identifier is able to be found, this is a semantic error.
+      if (table.containsKey(identifier))
+      {
+        // Return DUPLICATE_RECORD
+        return SymbolTableCode.DUPLICATE_RECORD;
+      }
+
+      // Create a new symbol record based on the type of node provided:
+      ASTNodeType nodeType = node.getNodeType();
+      // If the node type is either a simple variable declaration or a function
+      // parameter, create a simple symbol record
+      if ((nodeType == ASTNodeType.STATEMENT_VAR_DECLARATION) ||
+          (nodeType == ASTNodeType.META_PARAMETER))
+      {
+        table.put(identifier,
+            new SimpleSymbolRecord(
+                node.getLineNumber(),
+                node.getType(),
+                memoryLocation));
+        // Terminate processing (return OK)
+        return SymbolTableCode.OK;
+      }
+      // If the node type is an array parameter, create an array symbol record
+      // with no size
+      else if (nodeType == ASTNodeType.META_ARRAY_PARAMETER)
+      {
+        table.put(identifier,
+            new ArraySymbolRecord(
+                node.getLineNumber(),
+                node.getType(),
+                memoryLocation,
+                0));
+        // Terminate processing (return OK)
+        return SymbolTableCode.OK;
+      }
+      // If the node type is an array declaration, create an array symbol record
+      // with a known size
+      else if (nodeType == ASTNodeType.STATEMENT_ARRAY_DECLARATION)
+      {
+        // Obtain the size from the child of the array declaration
+        final int size = node.getChild(0).getValue();
+        table.put(identifier,
+            new ArraySymbolRecord(
+                node.getLineNumber(),
+                node.getType(),
+                memoryLocation,
+                size));
+
+        // Terminate processing (return OK)
+        return SymbolTableCode.OK;
+      }
+      // If a node type not captured above is passed in, return a semantic error
+      // (invalid type)
+      return SymbolTableCode.INVALID_TYPE;
+    }
+    // Recursive Case:
+    // Scope is not empty
+
+    // Extract the current and remaining scopes from the provided scope
+    final String currentScope   = SymbolTableUtilities.GetCurrentScope(scope);
+    final String remainingScope = SymbolTableUtilities.GetRemainingScope(scope);
+
+    // Check to see if the current scope exists in the current table
+    SymbolItem currentScopeItem = table.get(currentScope);
+    // If the current scope does not exist, return a semantic error (invalid scope)
+    if (currentScopeItem == null)
+    {
+      return SymbolTableCode.INVALID_SCOPE;
+    }
+    // Check to see if the scope is actually a scope (success is that the scope
+    // is a symbol table of some type)
+    final SymbolItemType scopeType = currentScopeItem.getSymbolType();
+    if ((scopeType != SymbolItemType.SYMBOL_TABLE_SCOPE) &&
+        (scopeType != SymbolItemType.SYMBOL_TABLE_FUNCTION))
+    {
+      // If the scope type is not a symbol table, return a semantic error
+      // (invalid scope)
+      return SymbolTableCode.INVALID_SCOPE;
+    }
+
+    // The scope is actually a scope at this point. Cast the current scope to
+    // a symbol table and return the result of a recursive call.
+    return ((SymbolTable)currentScopeItem).addRecord(
+        remainingScope,
+        node,
+        memoryLocation);
   }
 
   /**
@@ -149,17 +250,17 @@ public class SymbolTable extends SymbolItem
           // Add a new array symbol record
           table.put(identifier.getName(),
               new ArraySymbolRecord(identifier.getLineNumber(),
-                                    identifier.getType()));
+                                    identifier.getType(), 0, 0));
         }
         else
         {
           // Add a new simple symbol record
           table.put(identifier.getName(),
                     new SimpleSymbolRecord(identifier.getLineNumber(),
-                                           identifier.getType()));
+                                           identifier.getType(), 0));
         }
         // The record was properly added
-        return SymbolTableCode.UPDATE_OK;
+        return SymbolTableCode.OK;
       }
       // A record has previously been recorded. Time to make sure
       // the record matches the desired type
@@ -178,11 +279,11 @@ public class SymbolTable extends SymbolItem
         {
           record.addLine(identifier.getLineNumber());
           table.put(identifier.getName(), record);
-          return SymbolTableCode.UPDATE_OK;
+          return SymbolTableCode.OK;
         }
       }
 
-      return SymbolTableCode.UPDATE_NOT_FOUND;
+      return SymbolTableCode.RECORD_NOT_FOUND;
     }
 
     String currentScope = SymbolTableUtilities.GetCurrentScope(scope);
@@ -191,7 +292,7 @@ public class SymbolTable extends SymbolItem
     // If the scope item doesn't exist, exit early
     if (!table.containsKey(currentScope))
     {
-      return SymbolTableCode.UPDATE_NO_SCOPE;
+      return SymbolTableCode.NO_SCOPE;
     }
 
     SymbolTableCode errorCode;
@@ -205,10 +306,10 @@ public class SymbolTable extends SymbolItem
     }
     else
     {
-      return SymbolTableCode.UPDATE_SEMANTIC_FAILURE;
+      return SymbolTableCode.SEMANTIC_FAILURE;
     }
 
-    if (errorCode != SymbolTableCode.UPDATE_OK && record != null)
+    if (errorCode != SymbolTableCode.OK && record != null)
     {
       // If either:
       //     1. We want an array and the record is an array record
@@ -223,7 +324,7 @@ public class SymbolTable extends SymbolItem
       {
         record.addLine(identifier.getLineNumber());
         table.put(identifier.getName(), record);
-        return SymbolTableCode.UPDATE_OK;
+        return SymbolTableCode.OK;
       }
     }
 
@@ -273,7 +374,7 @@ public class SymbolTable extends SymbolItem
                   scopeIdentifier.getType()));
         }
         // The record was properly added
-        return SymbolTableCode.UPDATE_OK;
+        return SymbolTableCode.OK;
       }
       // A record has previously been recorded. Time to make sure
       // the record matches the desired type
@@ -292,11 +393,11 @@ public class SymbolTable extends SymbolItem
         {
           scopeRecord.addLine(scopeIdentifier.getLineNumber());
           table.put(scopeIdentifier.getName(), scopeRecord);
-          return SymbolTableCode.UPDATE_OK;
+          return SymbolTableCode.OK;
         }
       }
 
-      return SymbolTableCode.UPDATE_NOT_FOUND;
+      return SymbolTableCode.RECORD_NOT_FOUND;
     }
 
     String currentScope = SymbolTableUtilities.GetCurrentScope(scope);
@@ -305,7 +406,7 @@ public class SymbolTable extends SymbolItem
     // If the scope item doesn't exist, exit early
     if (!table.containsKey(currentScope))
     {
-      return SymbolTableCode.UPDATE_NO_SCOPE;
+      return SymbolTableCode.NO_SCOPE;
     }
 
     SymbolTableCode errorCode;
@@ -319,10 +420,10 @@ public class SymbolTable extends SymbolItem
     }
     else
     {
-      return SymbolTableCode.UPDATE_SEMANTIC_FAILURE;
+      return SymbolTableCode.SEMANTIC_FAILURE;
     }
 
-    if (errorCode != SymbolTableCode.UPDATE_OK && scopeRecord != null)
+    if (errorCode != SymbolTableCode.OK && scopeRecord != null)
     {
       // If either:
       //     1. We want an array and the record is an array record
@@ -337,7 +438,7 @@ public class SymbolTable extends SymbolItem
       {
         scopeRecord.addLine(scopeIdentifier.getLineNumber());
         table.put(scopeIdentifier.getName(), scopeRecord);
-        return SymbolTableCode.UPDATE_OK;
+        return SymbolTableCode.OK;
       }
     }
 

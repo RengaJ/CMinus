@@ -1,7 +1,6 @@
 package analyzer.symbol.table;
 
 import analyzer.symbol.SymbolItemType;
-import analyzer.symbol.SymbolTableCode;
 import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
 
@@ -72,7 +71,7 @@ public final class FunctionSymbolTable extends SymbolTable
   {
     SymbolTableCode returnCode = super.updateRecord(scope, identifier, isArray);
 
-    if (returnCode == SymbolTableCode.UPDATE_OK)
+    if (returnCode == SymbolTableCode.OK)
     {
       if (identifier.getNodeType() == ASTNodeType.META_PARAMETER ||
           identifier.getNodeType() == ASTNodeType.META_ARRAY_PARAMETER)

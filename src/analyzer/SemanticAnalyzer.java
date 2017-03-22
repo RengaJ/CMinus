@@ -1,6 +1,6 @@
 package analyzer;
 
-import analyzer.symbol.SymbolTableCode;
+import analyzer.symbol.table.SymbolTableCode;
 import analyzer.symbol.table.FunctionSymbolTable;
 import analyzer.symbol.table.SymbolTable;
 import globals.CompilerFlags;
@@ -134,7 +134,7 @@ public final class SemanticAnalyzer
       case EXPRESSION_IDENTIFIER:
       {
         // TODO: Implement Simple Identifier Processing
-        reportSemanticError(symbolTable.updateRecord(scope, node, false));
+        //reportSemanticError(symbolTable.updateRecord(scope, node, false));
         break;
       }
       // If the node is an operation ( ID + ID )...
@@ -241,7 +241,7 @@ public final class SemanticAnalyzer
     }
     else
     {
-      reportSemanticError(symbolTable.updateRecord(scope, node, false));
+      reportSemanticError(symbolTable.addRecord(scope, node, 0));
     }
   }
 
@@ -250,7 +250,7 @@ public final class SemanticAnalyzer
   {
     if (node.getChild(0).getType() != Boolean.class)
     {
-      reportSemanticError(SymbolTableCode.UPDATE_SEMANTIC_FAILURE);
+      reportSemanticError(SymbolTableCode.SEMANTIC_FAILURE);
     }
 
     processNode(node.getChild(0), scope);
@@ -286,7 +286,7 @@ public final class SemanticAnalyzer
 
   private void reportSemanticError(final SymbolTableCode errorCode)
   {
-    if (errorCode != SymbolTableCode.UPDATE_OK)
+    if (errorCode != SymbolTableCode.OK)
     {
       System.err.printf("SEMANTIC ERROR - %s\n", errorCode.toString());
       errorOccurred = true;

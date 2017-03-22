@@ -8,9 +8,10 @@ import analyzer.symbol.SymbolItemType;
 public final class SimpleSymbolRecord extends SymbolRecord
 {
   public SimpleSymbolRecord(final int declaredLine,
-                            final Class<?> classType)
+                            final Class<?> classType,
+                            final int memoryLocation)
   {
-    super(declaredLine, classType);
+    super(declaredLine, classType, memoryLocation);
   }
 
   @Override

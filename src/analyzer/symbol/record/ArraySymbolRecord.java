@@ -7,9 +7,16 @@ import analyzer.symbol.SymbolItemType;
  */
 public final class ArraySymbolRecord extends SymbolRecord
 {
-  public ArraySymbolRecord(int declaredLine, Class<?> classType)
+  private int size;
+
+  public ArraySymbolRecord(final int declaredLine,
+                           final Class<?> classType,
+                           final int memoryLocation,
+                           final int size)
   {
-    super(declaredLine, classType);
+    super(declaredLine, classType, memoryLocation);
+
+    this.size = size;
   }
 
   @Override
