@@ -65,18 +65,21 @@ public final class FunctionSymbolTable extends SymbolTable
   }
 
   @Override
-  public SymbolTableCode updateRecord(final String scope,
-                                      final AbstractSyntaxTreeNode identifier,
-                                      final boolean isArray)
+  public SymbolTableCode addRecord(final String scope,
+                                   final AbstractSyntaxTreeNode identifier,
+                                   final int memoryLocation)
   {
-    SymbolTableCode returnCode = super.updateRecord(scope, identifier, isArray);
+    SymbolTableCode returnCode = super.addRecord(scope, identifier, memoryLocation);
 
     if (returnCode == SymbolTableCode.OK)
     {
-      if (identifier.getNodeType() == ASTNodeType.META_PARAMETER ||
-          identifier.getNodeType() == ASTNodeType.META_ARRAY_PARAMETER)
+      if (identifier.getNodeType() == ASTNodeType.META_PARAMETER)
       {
-        addParameter(isArray);
+        addParameter(false);
+      }
+      else if (identifier.getNodeType() == ASTNodeType.META_ARRAY_PARAMETER)
+      {
+        addParameter(true);
       }
     }
 

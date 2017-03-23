@@ -6,6 +6,7 @@ import analyzer.symbol.table.SymbolTable;
 import globals.CompilerFlags;
 import syntaxtree.AbstractSyntaxTreeNode;
 import syntaxtree.expression.IDExpressionNode;
+import syntaxtree.statement.IfStatementNode;
 
 /**
  *
@@ -134,7 +135,7 @@ public final class SemanticAnalyzer
       case EXPRESSION_IDENTIFIER:
       {
         // TODO: Implement Simple Identifier Processing
-        //reportSemanticError(symbolTable.updateRecord(scope, node, false));
+        reportSemanticError(symbolTable.update(scope, node.getName(), node.getLineNumber()));
         break;
       }
       // If the node is an operation ( ID + ID )...
@@ -209,7 +210,7 @@ public final class SemanticAnalyzer
   private void processFunctionDeclaration(final AbstractSyntaxTreeNode node,
                                           final String scope)
   {
-    symbolTable.updateScope(scope, node, true);
+    symbolTable.addScope(scope, node);
 
     String newScope;
     if (scope.equals(GLOBAL_SCOPE))
@@ -257,11 +258,11 @@ public final class SemanticAnalyzer
 
     String ifScope = String.format("if_%d", ++anonymousScopeCount);
 
-    AbstractSyntaxTreeNode ifNode = new IDExpressionNode();
+    AbstractSyntaxTreeNode ifNode = new IfStatementNode();
     ifNode.setName(ifScope);
     ifNode.setLineNumber(node.getChild(1).getLineNumber());
 
-    symbolTable.updateScope(scope, ifNode, false);
+    symbolTable.addScope(scope, ifNode);
 
     String newScope = String.format("%s.%s", scope, ifScope);
 
@@ -272,12 +273,12 @@ public final class SemanticAnalyzer
       return;
     }
 
-    AbstractSyntaxTreeNode elseNode = new IDExpressionNode();
+    AbstractSyntaxTreeNode elseNode = new IfStatementNode();
     String elseScope = String.format("else_%d", anonymousScopeCount);
     elseNode.setName(elseScope);
     elseNode.setLineNumber(node.getChild(2).getLineNumber());
 
-    symbolTable.updateScope(scope, elseNode, false);
+    symbolTable.addScope(scope, elseNode);
 
     newScope = String.format("%s.%s", scope, elseScope);
 

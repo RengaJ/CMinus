@@ -60,6 +60,20 @@ public class SymbolTable extends SymbolItem
     table.put(scopeName, scopeTable);
   }
 
+  /**
+   * Attempt to add a record the symbol table, given a scope level and the node
+   * containing the information for addition.
+   *
+   * @param scope The scope level for the addition of the record. Scopes have a
+   *              format of "scope1.scope2. ...". The root scope is defined as "".
+   * @param node  The node that contains the information to use for creating a new
+   *              record.
+   * @param memoryLocation The location in memory where the identifier should
+   *                       reside.
+   *
+   * @return Returns SymbolTableCode.OK if the addition of the record was
+   *         successful, and anything else if something fails.
+   */
   public SymbolTableCode addRecord(final String scope,
                                    final AbstractSyntaxTreeNode node,
                                    final int memoryLocation)
@@ -160,6 +174,85 @@ public class SymbolTable extends SymbolItem
         memoryLocation);
   }
 
+  public SymbolTableCode addScope(final String scope,
+                                  final AbstractSyntaxTreeNode node)
+  {
+    // Base Condition:
+    // Scope is empty
+    if (scope.isEmpty())
+    {
+      // At the base condition, check to see if the scope to be added exists already
+      // (the best result is that the new scope CANNOT be found)
+      final String scopeName = node.getName();
+
+      // If the scope name is able to be found, this is a semantic error.
+      if (table.containsKey(scopeName))
+      {
+        // Return DUPLICATE_SCOPE
+        return SymbolTableCode.DUPLICATE_SCOPE;
+      }
+
+      // Create a new symbol table based on the type of node provided:
+      ASTNodeType nodeType = node.getNodeType();
+
+      // If the node type is a function declaration, create a function symbol table
+      if (nodeType == ASTNodeType.META_FUNCTION)
+      {
+        table.put(scopeName,
+            new FunctionSymbolTable(
+                node.getLineNumber(),
+                node.getType()));
+        // Terminate processing (return OK)
+        return SymbolTableCode.OK;
+      }
+      // If the node type is either an If-Statement or a While-Loop, create a simple
+      // symbol table
+      else if ((nodeType == ASTNodeType.STATEMENT_IF) ||
+               (nodeType == ASTNodeType.STATEMENT_WHILE))
+      {
+        table.put(scopeName,
+            new SymbolTable(
+                node.getLineNumber(),
+                Void.class));
+        // Terminate processing (return OK)
+        return SymbolTableCode.OK;
+      }
+      // If a node type not captured above is passed in, return a semantic error
+      // (invalid type)
+      return SymbolTableCode.INVALID_TYPE;
+    }
+    // Recursive Case:
+    // Scope is not empty
+
+    // Extract the current and remaining scopes from the provided scope
+    final String currentScope   = SymbolTableUtilities.GetCurrentScope(scope);
+    final String remainingScope = SymbolTableUtilities.GetRemainingScope(scope);
+
+    // Check to see if the current scope exists in the current table
+    SymbolItem currentScopeItem = table.get(currentScope);
+    // If the current scope does not exist, return a semantic error (invalid scope)
+    if (currentScopeItem == null)
+    {
+      return SymbolTableCode.INVALID_SCOPE;
+    }
+    // Check to see if the scope is actually a scope (success is that the scope
+    // is a symbol table of some type)
+    final SymbolItemType scopeType = currentScopeItem.getSymbolType();
+    if ((scopeType != SymbolItemType.SYMBOL_TABLE_SCOPE) &&
+        (scopeType != SymbolItemType.SYMBOL_TABLE_FUNCTION))
+    {
+      // If the scope type is not a symbol table, return a semantic error
+      // (invalid scope)
+      return SymbolTableCode.INVALID_SCOPE;
+    }
+
+    // The scope is actually a scope at this point. Cast the current scope to
+    // a symbol table and return the result of a recursive call.
+    return ((SymbolTable)currentScopeItem).addScope(
+        remainingScope,
+        node);
+  }
+
   /**
    * Attempt to locate the most-scoped version of an identifier based upon a given
    * scope string
@@ -220,6 +313,89 @@ public class SymbolTable extends SymbolItem
     return item;
   }
 
+  public SymbolTableCode update(final String scope,
+                                final String identifier,
+                                final int lineNumber)
+  {
+    // Base Condition:
+    // Scope is empty
+    if (scope.isEmpty())
+    {
+      // Check to see if the identifier exists in the current scope (the identifier
+      // should be located). If the identifier cannot be located, report a semantic
+      // error (note that this might not actually be true error)
+      if (!table.containsKey(identifier))
+      {
+        // Return RECORD_NOT_FOUND
+        return SymbolTableCode.RECORD_NOT_FOUND;
+      }
+      // It has been determined that the identifier exists. Extract the record
+      // and add the line number to the record's list
+      SymbolItem record = table.get(identifier);
+      record.addLine(lineNumber);
+
+      // Re-insert the record back into the symbol table
+      table.put(identifier, record);
+
+      // The record was successfully updated. Return OK.
+      return SymbolTableCode.OK;
+    }
+    // At this point, the scope is not empty. Extract the current and remaining
+    // scopes from the provided scope
+    final String currentScope   = SymbolTableUtilities.GetCurrentScope(scope);
+    final String remainingScope = SymbolTableUtilities.GetRemainingScope(scope);
+
+    // Check to see if the current scope exists in the table. If the current scope
+    // does not exist in the table, report a semantic error (this is a TRUE semantic
+    // error)
+    if (!table.containsKey(currentScope))
+    {
+      // Return INVALID_SCOPE
+      return SymbolTableCode.INVALID_SCOPE;
+    }
+
+    // Extract the current scope from the table.
+    final SymbolItem scopeItem = table.get(currentScope);
+
+    // Make sure that scope is a symbol table. If not, report a semantic error
+    // (this is a TRUE semantic error)
+    final SymbolItemType scopeItemType = scopeItem.getSymbolType();
+    if (scopeItemType != SymbolItemType.SYMBOL_TABLE_SCOPE &&
+        scopeItemType != SymbolItemType.SYMBOL_TABLE_FUNCTION)
+    {
+      // Return INVALID_SCOPE
+      return SymbolTableCode.INVALID_SCOPE;
+    }
+
+    // Perform the recursive call on the update function with the remaining scope
+    final SymbolTableCode returnCode =
+        ((SymbolTable)scopeItem).update(remainingScope, identifier, lineNumber);
+
+    // If the return code is either OK or INVALID_SCOPE, simply return the code
+    if (returnCode == SymbolTableCode.OK ||
+        returnCode == SymbolTableCode.INVALID_SCOPE)
+    {
+      return returnCode;
+    }
+
+    // The last check to perform is to see if the identifier exists in the current
+    // scope.
+    if (!table.containsKey(identifier))
+    {
+      // If the identifier cannot be found, return RECORD_NOT_FOUND
+      return SymbolTableCode.RECORD_NOT_FOUND;
+    }
+    // It has been determined that the identifier exists. Extract the record
+    // and add the line number to the record's list
+    SymbolItem record = table.get(identifier);
+    record.addLine(lineNumber);
+
+    // Re-insert the record back into the symbol table
+    table.put(identifier, record);
+
+    // The record was successfully updated. Return OK.
+    return SymbolTableCode.OK;
+  }
   /**
    * Add or update a record to the symbol table, given a particular scope.
    * Note that if the provided scope does not exist, the record will not

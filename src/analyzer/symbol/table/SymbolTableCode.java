@@ -10,7 +10,7 @@ public enum SymbolTableCode
   DUPLICATE_SCOPE   ("Scope already defined."),
   INVALID_SCOPE     ("Invalid scope provided."),
   INVALID_TYPE      ("Invalid expression being added."),
-  RECORD_NOT_FOUND  (""),
+  RECORD_NOT_FOUND  ("Record not found."),
   NO_SCOPE          ("Outside known scopes."),
   SEMANTIC_FAILURE  ("Type mismatch.");
 
