@@ -146,16 +146,6 @@ public final class SemanticAnalyzer
       }
       // If the node is an array parameter ( int ID[] )...
       case META_ARRAY_PARAMETER:
-      {
-        // TODO: Implement Array Parameter Processing
-        break;
-      }
-      // If the node is a function declaration ( <type> ID( ... ) { ... } )...
-      case META_FUNCTION:
-      {
-        processFunctionDeclaration(node, scope);
-        break;
-      }
       // If the node is a simple parameter ( int ID )...
       case META_PARAMETER:
       {
@@ -164,8 +154,17 @@ public final class SemanticAnalyzer
       }
       // If the node is a local array declaration ( int x[NUM] )...
       case STATEMENT_ARRAY_DECLARATION:
+      // If the node is a local declaration ( int x )...
+      case STATEMENT_VAR_DECLARATION:
       {
-        // TODO: Implement Local Array Declaration Processing
+        // TODO: Implement Local Declaration Processing
+        reportSemanticError(symbolTable.addRecord(scope, node, 0));
+        break;
+      }
+      // If the node is a function declaration ( <type> ID( ... ) { ... } )...
+      case META_FUNCTION:
+      {
+        processFunctionDeclaration(node, scope);
         break;
       }
       // If the node is an assignment ( ID = ... )...
@@ -186,12 +185,7 @@ public final class SemanticAnalyzer
         processNode(node.getChild(0), scope);
         break;
       }
-      // If the node is a local declaration ( int x )...
-      case STATEMENT_VAR_DECLARATION:
-      {
-        // TODO: Implement Local Declaration Processing
-        break;
-      }
+
       // If the node is a while-statement...
       case STATEMENT_WHILE:
       {
