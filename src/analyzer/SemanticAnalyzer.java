@@ -32,6 +32,11 @@ public final class SemanticAnalyzer
   private boolean errorOccurred;
 
   /**
+   * The current memory location for storing identifiers in the symbol table
+   */
+  private int memoryLocation;
+
+  /**
    * Full constructor for the SemanticAnalyzer
    */
   public SemanticAnalyzer()
@@ -39,6 +44,7 @@ public final class SemanticAnalyzer
     symbolTable         = null;
     errorOccurred       = false;
     anonymousScopeCount = 0;
+    memoryLocation      = 0;
   }
 
   /**
@@ -50,7 +56,12 @@ public final class SemanticAnalyzer
    */
   public SymbolTable analyze(final AbstractSyntaxTreeNode tree)
   {
+    // Reset the anonymous scope count
     anonymousScopeCount = 0;
+
+    // Reset the memory location
+    memoryLocation = 0;
+
     // Create the global symbol table that will be used to keep
     // track of everything in the semantic analysis
     symbolTable = new SymbolTable(-1, null);
@@ -135,13 +146,15 @@ public final class SemanticAnalyzer
       case EXPRESSION_IDENTIFIER:
       {
         // TODO: Implement Simple Identifier Processing
-        reportSemanticError(symbolTable.update(scope, node.getName(), node.getLineNumber()));
+        reportSemanticError(
+            symbolTable.update(scope, node.getName(), node.getLineNumber()),
+            node.getLineNumber());
         break;
       }
       // If the node is an operation ( ID + ID )...
       case EXPRESSION_OPERATION:
       {
-        // TODO: Implement Operator Processing
+        processOperator(node, scope);
         break;
       }
       // If the node is an array parameter ( int ID[] )...
@@ -154,11 +167,22 @@ public final class SemanticAnalyzer
       }
       // If the node is a local array declaration ( int x[NUM] )...
       case STATEMENT_ARRAY_DECLARATION:
+      {
+        break;
+      }
       // If the node is a local declaration ( int x )...
       case STATEMENT_VAR_DECLARATION:
       {
         // TODO: Implement Local Declaration Processing
-        reportSemanticError(symbolTable.addRecord(scope, node, 0));
+        SymbolTableCode result = symbolTable.addRecord(scope, node, memoryLocation);
+        if (result == SymbolTableCode.OK)
+        {
+          ++memoryLocation;
+        }
+        else
+        {
+          reportSemanticError(result, node.getLineNumber());
+        }
         break;
       }
       // If the node is a function declaration ( <type> ID( ... ) { ... } )...
@@ -236,7 +260,9 @@ public final class SemanticAnalyzer
     }
     else
     {
-      reportSemanticError(symbolTable.addRecord(scope, node, 0));
+      reportSemanticError(
+          symbolTable.addRecord(scope, node, 0),
+          node.getLineNumber());
     }
   }
 
@@ -245,7 +271,9 @@ public final class SemanticAnalyzer
   {
     if (node.getChild(0).getType() != Boolean.class)
     {
-      reportSemanticError(SymbolTableCode.SEMANTIC_FAILURE);
+      reportSemanticError(
+          SymbolTableCode.SEMANTIC_FAILURE,
+          node.getLineNumber());
     }
 
     processNode(node.getChild(0), scope);
@@ -279,11 +307,29 @@ public final class SemanticAnalyzer
     processTree(node.getChild(2), newScope);
   }
 
-  private void reportSemanticError(final SymbolTableCode errorCode)
+  private void processOperator(final AbstractSyntaxTreeNode node,
+                               final String scope)
+  {
+    processNode(node.getChild(0), scope);
+    if (node.getChild(0).getType() != Integer.class)
+    {
+      reportSemanticError(SymbolTableCode.INVALID_LHS, node.getLineNumber());
+    }
+    processNode(node.getChild(1), scope);
+    if (node.getChild(1).getType() != Integer.class)
+    {
+      reportSemanticError(SymbolTableCode.INVALID_RHS, node.getLineNumber());
+    }
+  }
+
+  private void reportSemanticError(final SymbolTableCode errorCode,
+                                   final int lineNumber)
   {
     if (errorCode != SymbolTableCode.OK)
     {
-      System.err.printf("SEMANTIC ERROR - %s\n", errorCode.toString());
+      System.err.printf("SEMANTIC ERROR - %s - Line %d\n",
+          errorCode.toString(),
+          lineNumber);
       errorOccurred = true;
     }
   }

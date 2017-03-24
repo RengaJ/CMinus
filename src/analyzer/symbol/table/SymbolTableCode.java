@@ -11,7 +11,8 @@ public enum SymbolTableCode
   INVALID_SCOPE     ("Invalid scope provided."),
   INVALID_TYPE      ("Invalid expression being added."),
   RECORD_NOT_FOUND  ("Record not found."),
-  NO_SCOPE          ("Outside known scopes."),
+  INVALID_LHS       ("Left-hand side of operator invalid."),
+  INVALID_RHS       ("Right-hand side of operator invalid."),
   SEMANTIC_FAILURE  ("Type mismatch.");
 
   private String errorString;

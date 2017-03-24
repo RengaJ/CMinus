@@ -699,6 +699,7 @@ public final class Parser
     arrayIdExpression.setName      (currentToken.getLexeme());
     arrayIdExpression.setLineNumber(currentToken.getLineNumber());
     arrayIdExpression.setTokenType (TokenType.VARIABLE_IDENTIFIER);
+    arrayIdExpression.setType      (Integer.class);
 
     // Advance the current token to ensure that processing continues smoothly
     matchAndPop(TokenType.VARIABLE_IDENTIFIER);
@@ -750,6 +751,7 @@ public final class Parser
     idExpression.setName      (currentToken.getLexeme());
     idExpression.setLineNumber(currentToken.getLineNumber());
     idExpression.setTokenType (TokenType.VARIABLE_IDENTIFIER);
+    idExpression.setType      (Integer.class);
 
     // Advance the current token to ensure that processing continues smoothly
     matchAndPop(TokenType.VARIABLE_IDENTIFIER);
