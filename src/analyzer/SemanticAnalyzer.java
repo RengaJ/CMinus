@@ -6,6 +6,7 @@ import analyzer.symbol.table.SymbolTableCode;
 import analyzer.symbol.table.FunctionSymbolTable;
 import analyzer.symbol.table.SymbolTable;
 import globals.CompilerFlags;
+import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
 import syntaxtree.statement.IfStatementNode;
 import syntaxtree.statement.WhileStatementNode;
@@ -397,15 +398,29 @@ public final class SemanticAnalyzer
     AbstractSyntaxTreeNode arg = node.getChild(index);
     while (arg != null)
     {
-      // TODO: PROPERLY HANDLE OPERATORS (THEY DON'T EXIST IN THE SYMBOL TABLE)
-      final SymbolItem argument = symbolTable.getSymbolItem(scope, arg.getName());
-      final SymbolItemType type = argument.getSymbolType();
-      if ((type == SymbolItemType.SYMBOL_RECORD_ARRAY &&
-          !functionSymbolTable.isParameterArray(index)) ||
-          (type != SymbolItemType.SYMBOL_RECORD_ARRAY &&
-          functionSymbolTable.isParameterArray(index)))
+      if (arg.getNodeType() == ASTNodeType.EXPRESSION_OPERATION)
       {
-        reportSemanticError(SymbolTableCode.INVALID_PTYPE, lineNumber);
+        if (arg.getType() != Integer.class)
+        {
+          reportSemanticError(SymbolTableCode.INVALID_PTYPE, arg.getLineNumber());
+        }
+      }
+      else
+      {
+        final SymbolItem argument = symbolTable.getSymbolItem(scope, arg.getName());
+        final SymbolItemType type = argument.getSymbolType();
+        if ((type == SymbolItemType.SYMBOL_RECORD_ARRAY &&
+            !functionSymbolTable.isParameterArray(index)) ||
+            (type != SymbolItemType.SYMBOL_RECORD_ARRAY &&
+                functionSymbolTable.isParameterArray(index)))
+        {
+          reportSemanticError(SymbolTableCode.INVALID_PTYPE, lineNumber);
+        }
+        else if (type == SymbolItemType.SYMBOL_TABLE_FUNCTION &&
+                 functionSymbolTable.isParameterArray(index))
+        {
+          reportSemanticError(SymbolTableCode.INVALID_PTYPE, lineNumber);
+        }
       }
       arg = arg.getSibling();
     }
