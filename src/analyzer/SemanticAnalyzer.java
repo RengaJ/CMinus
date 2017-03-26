@@ -1,12 +1,14 @@
 package analyzer;
 
+import analyzer.symbol.SymbolItem;
+import analyzer.symbol.SymbolItemType;
 import analyzer.symbol.table.SymbolTableCode;
 import analyzer.symbol.table.FunctionSymbolTable;
 import analyzer.symbol.table.SymbolTable;
 import globals.CompilerFlags;
 import syntaxtree.AbstractSyntaxTreeNode;
-import syntaxtree.expression.IDExpressionNode;
 import syntaxtree.statement.IfStatementNode;
+import syntaxtree.statement.WhileStatementNode;
 
 /**
  *
@@ -103,14 +105,18 @@ public final class SemanticAnalyzer
     return errorOccurred;
   }
 
-  private void processTree(final AbstractSyntaxTreeNode tree, final String scope)
+  private int processTree(final AbstractSyntaxTreeNode tree, final String scope)
   {
+    int processed = 0;
     AbstractSyntaxTreeNode currentNode = tree;
     while (currentNode != null)
     {
       processNode(currentNode, scope);
       currentNode = currentNode.getSibling();
+      ++processed;
     }
+
+    return processed;
   }
 
   private void processNode(final AbstractSyntaxTreeNode node, final String scope)
@@ -130,27 +136,35 @@ public final class SemanticAnalyzer
 
     switch (node.getNodeType())
     {
-      // If the node is an array identifier ( ID[...] )...
-      case EXPRESSION_ARRAY_IDENTIFIER:
-      {
-        // TODO: Implement Array Identifier Processing
-        break;
-      }
       // If the node is a function call ( ID (...) )...
       case EXPRESSION_CALL:
       {
-        // TODO: Implement Function Call Processing
+        processFunctionCall(node, scope);
+        break;
+      }
+      // If the node is an array identifier ( ID[...] )...
+      case EXPRESSION_ARRAY_IDENTIFIER:
+      {
+        reportSemanticError(
+            symbolTable.update(scope, node.getName(), node.getLineNumber()),
+            node.getLineNumber());
+
+        final AbstractSyntaxTreeNode child = node.getChild(0);
+        reportSemanticError(
+            symbolTable.update(scope, child.getName(), child.getLineNumber()),
+            child.getLineNumber());
         break;
       }
       // If the node is a simple identifier ( ID )...
       case EXPRESSION_IDENTIFIER:
       {
-        // TODO: Implement Simple Identifier Processing
         reportSemanticError(
             symbolTable.update(scope, node.getName(), node.getLineNumber()),
             node.getLineNumber());
         break;
       }
+      // If the node is an assignment ( ID = ... )...
+      case STATEMENT_ASSIGN:
       // If the node is an operation ( ID + ID )...
       case EXPRESSION_OPERATION:
       {
@@ -162,18 +176,26 @@ public final class SemanticAnalyzer
       // If the node is a simple parameter ( int ID )...
       case META_PARAMETER:
       {
-        processSimpleParameter(node, scope);
+        processParameter(node, scope);
         break;
       }
       // If the node is a local array declaration ( int x[NUM] )...
       case STATEMENT_ARRAY_DECLARATION:
       {
+        SymbolTableCode result = symbolTable.addRecord(scope, node, memoryLocation);
+        if (result == SymbolTableCode.OK)
+        {
+          memoryLocation += node.getChild(0).getValue();
+        }
+        else
+        {
+          reportSemanticError(result, node.getLineNumber());
+        }
         break;
       }
       // If the node is a local declaration ( int x )...
       case STATEMENT_VAR_DECLARATION:
       {
-        // TODO: Implement Local Declaration Processing
         SymbolTableCode result = symbolTable.addRecord(scope, node, memoryLocation);
         if (result == SymbolTableCode.OK)
         {
@@ -189,12 +211,6 @@ public final class SemanticAnalyzer
       case META_FUNCTION:
       {
         processFunctionDeclaration(node, scope);
-        break;
-      }
-      // If the node is an assignment ( ID = ... )...
-      case STATEMENT_ASSIGN:
-      {
-        // TODO: Implement Assignment Processing
         break;
       }
       // If the node is an if-statement...
@@ -213,7 +229,7 @@ public final class SemanticAnalyzer
       // If the node is a while-statement...
       case STATEMENT_WHILE:
       {
-        // TODO: Implement While-Statement Processing
+        processWhileStatement(node, scope);
         break;
       }
       // If the node is a constant value ( NUM ) or is unrecognized...
@@ -247,8 +263,8 @@ public final class SemanticAnalyzer
     processTree(node.getChild(1), newScope);
   }
 
-  private void processSimpleParameter(final AbstractSyntaxTreeNode node,
-                                      final String scope)
+  private void processParameter(final AbstractSyntaxTreeNode node,
+                                final String scope)
   {
     if (node.getType() == Void.class)
     {
@@ -307,6 +323,31 @@ public final class SemanticAnalyzer
     processTree(node.getChild(2), newScope);
   }
 
+  private void processWhileStatement(final AbstractSyntaxTreeNode node,
+                                     final String scope)
+  {
+    if (node.getChild(0).getType() != Boolean.class)
+    {
+      reportSemanticError(
+          SymbolTableCode.SEMANTIC_FAILURE,
+          node.getLineNumber());
+    }
+
+    processNode(node.getChild(0), scope);
+
+    String whileScope = String.format("while_%d", ++anonymousScopeCount);
+
+    AbstractSyntaxTreeNode ifNode = new WhileStatementNode();
+    ifNode.setName(whileScope);
+    ifNode.setLineNumber(node.getChild(1).getLineNumber());
+
+    symbolTable.addScope(scope, ifNode);
+
+    String newScope = String.format("%s.%s", scope, whileScope);
+
+    processTree(node.getChild(1), newScope);
+  }
+
   private void processOperator(final AbstractSyntaxTreeNode node,
                                final String scope)
   {
@@ -319,6 +360,54 @@ public final class SemanticAnalyzer
     if (node.getChild(1).getType() != Integer.class)
     {
       reportSemanticError(SymbolTableCode.INVALID_RHS, node.getLineNumber());
+    }
+  }
+
+  private void processFunctionCall(final AbstractSyntaxTreeNode node,
+                                    final String scope)
+  {
+    final int lineNumber = node.getLineNumber();
+    final String name    = node.getName();
+
+    SymbolTableCode result = symbolTable.update(scope, name, lineNumber);
+
+    if (result != SymbolTableCode.OK)
+    {
+      reportSemanticError(result, lineNumber);
+      return;
+    }
+
+    SymbolItem function = symbolTable.getSymbolItem(scope, name);
+    if (function.getSymbolType() != SymbolItemType.SYMBOL_TABLE_FUNCTION)
+    {
+      reportSemanticError(SymbolTableCode.SEMANTIC_FAILURE, lineNumber);
+      return;
+    }
+
+    FunctionSymbolTable functionSymbolTable = (FunctionSymbolTable)function;
+    node.setType(functionSymbolTable.getClassType());
+    int processed = processTree(node.getChild(0), scope);
+
+    if (processed != functionSymbolTable.getParameterCount())
+    {
+      reportSemanticError(SymbolTableCode.BAD_PARAM_COUNT, lineNumber);
+    }
+
+    int index = 0;
+    AbstractSyntaxTreeNode arg = node.getChild(index);
+    while (arg != null)
+    {
+      // TODO: PROPERLY HANDLE OPERATORS (THEY DON'T EXIST IN THE SYMBOL TABLE)
+      final SymbolItem argument = symbolTable.getSymbolItem(scope, arg.getName());
+      final SymbolItemType type = argument.getSymbolType();
+      if ((type == SymbolItemType.SYMBOL_RECORD_ARRAY &&
+          !functionSymbolTable.isParameterArray(index)) ||
+          (type != SymbolItemType.SYMBOL_RECORD_ARRAY &&
+          functionSymbolTable.isParameterArray(index)))
+      {
+        reportSemanticError(SymbolTableCode.INVALID_PTYPE, lineNumber);
+      }
+      arg = arg.getSibling();
     }
   }
 

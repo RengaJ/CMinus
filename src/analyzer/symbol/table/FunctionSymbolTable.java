@@ -54,6 +54,16 @@ public final class FunctionSymbolTable extends SymbolTable
     arrayParameter.add(isArray);
   }
 
+  public boolean isParameterArray(final int index)
+  {
+    if (index < 0 || index >= parameterCount)
+    {
+      return false;
+    }
+
+    return arrayParameter.get(index);
+  }
+
   /**
    * Obtain the number of parameters expected by this function
    *

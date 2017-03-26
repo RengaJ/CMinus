@@ -13,6 +13,8 @@ public enum SymbolTableCode
   RECORD_NOT_FOUND  ("Record not found."),
   INVALID_LHS       ("Left-hand side of operator invalid."),
   INVALID_RHS       ("Right-hand side of operator invalid."),
+  INVALID_PTYPE     ("Invalid parameter type."),
+  BAD_PARAM_COUNT   ("Incorrect number of parameters."),
   SEMANTIC_FAILURE  ("Type mismatch.");
 
   private String errorString;
