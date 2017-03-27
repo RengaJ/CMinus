@@ -423,6 +423,7 @@ public final class SemanticAnalyzer
           reportSemanticError(SymbolTableCode.INVALID_PTYPE, lineNumber);
         }
       }
+      ++index;
       arg = arg.getSibling();
     }
   }
