@@ -398,7 +398,8 @@ public final class SemanticAnalyzer
     AbstractSyntaxTreeNode arg = node.getChild(index);
     while (arg != null)
     {
-      if (arg.getNodeType() == ASTNodeType.EXPRESSION_OPERATION)
+      if (arg.getNodeType() == ASTNodeType.EXPRESSION_OPERATION ||
+          arg.getNodeType() == ASTNodeType.EXPRESSION_NUMBER)
       {
         if (arg.getType() != Integer.class)
         {
