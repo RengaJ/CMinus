@@ -13,6 +13,7 @@ public enum ASTNodeType
   EXPRESSION_NUMBER,           // Constant Number
   EXPRESSION_OPERATION,        // Operation Expression ( x + y )
   // Meta/Structural Node Types
+  META_ANONYMOUS_BLOCK,        // Anonymous block ( ... { ... } ... )
   META_ARRAY_PARAMETER,        // Function Array Parameter ( ...(int x[]) )
   META_FUNCTION,               // Function Block ( void main() { ... } )
   META_PARAMETER,              // Function Parameter ( ...(int x) )

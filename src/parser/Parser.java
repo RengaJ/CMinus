@@ -34,19 +34,25 @@ public final class Parser
   private AbstractSyntaxTreeNode currentTree;
 
   /**
-   *
+   * Flag indicating if a parsing error occurred
    */
   private boolean fatalError;
+
+  /**
+   * A counter used to count anonymous blocks detected in the code
+   */
+  private int anonymousCount;
 
   /**
    * Full constructor for the Parser
    */
   public Parser()
   {
-    currentTree = null;
-    currentToken = null;
-    tokenList = null;
-    fatalError = false;
+    currentTree    = null;
+    currentToken   = null;
+    tokenList      = null;
+    fatalError     = false;
+    anonymousCount = 0;
   }
 
   /**
@@ -82,7 +88,7 @@ public final class Parser
   /**
    * Obtain an indication as to whether or not a syntax error occurred.
    *
-   * @return
+   * @return A Boolean value indicating if a syntax error was found
    */
   public boolean syntaxErrorOccurred()
   {
@@ -205,24 +211,31 @@ public final class Parser
         break;
       }
 
+      // If the current token is IF, perform special processing
+      // to properly handle this control flow structure
       case RESERVED_IF:
       {
         statement = processIf();
         break;
       }
-
+      // If the current token is WHILE, perform special processing
+      // to properly handle this control flow structure
       case RESERVED_WHILE:
       {
         statement = processWhile();
         break;
       }
 
+      // If the current token is RETURN, handle the return value
+      // (or nothing) to be associated with this token
       case RESERVED_RETURN:
       {
         statement = processReturn();
         break;
       }
 
+      // If the current token is an assignment ( ID = ... ), perform
+      // the appropriate processing to ensure the structure is correct
       case SPECIAL_ASSIGN:
       {
         statement = processAssignment();
@@ -242,6 +255,14 @@ public final class Parser
       case SPECIAL_NOT_EQUAL:
       {
         statement = processExpression();
+        break;
+      }
+
+      // If the left brace ( { ), a new anonymous scope has begun. Perform
+      // the necessary processing to handle this case
+      case SPECIAL_LEFT_BRACE:
+      {
+        statement = processAnonymousScope();
         break;
       }
 
@@ -580,7 +601,7 @@ public final class Parser
    *
    * @param identifierType The identifier type
    *
-   * @return
+   * @return The ArrayParameterNode that was created as a result of the processing
    */
   private ArrayParameterNode processArrayParameter(Class<?> identifierType)
   {
@@ -785,6 +806,9 @@ public final class Parser
     // Advance the current token to ensure that processing continues smoothly
     matchAndPop(TokenType.VARIABLE_IDENTIFIER);
 
+    // Reset the anonymous counter
+    anonymousCount = 0;
+
     // The completion of the function requires two more steps:
     // 1. Parsing of the parameter list
     // 2. Parsing of the function body
@@ -801,6 +825,9 @@ public final class Parser
     // detected.
     matchAndPop(TokenType.SPECIAL_LEFT_BRACE);
     functionNode.addChild(createSyntaxTree());
+
+    // Reset the anonymous counter
+    anonymousCount = 0;
 
     // The function node is now complete, and it should be returned
     return functionNode;
@@ -1522,6 +1549,24 @@ public final class Parser
     return returnStatement;
   }
 
+  /**
+   * Process an anonymous scope block
+   *
+   * @return The AnonymousBlockNode that was defined by the tokens
+   */
+  private AnonymousBlockNode processAnonymousScope()
+  {
+    AnonymousBlockNode anonymousBlockNode = new AnonymousBlockNode();
+    anonymousBlockNode.setName      (String.format("$%d", ++anonymousCount));
+    anonymousBlockNode.setLineNumber(currentToken.getLineNumber());
+
+    matchAndPop(TokenType.SPECIAL_LEFT_BRACE);
+
+    anonymousBlockNode.addChild(createSyntaxTree());
+
+    return anonymousBlockNode;
+  }
+
   /* **************************************************************************** *
    *                       PARSER UTILITY FUNCTIONS                               *
    * **************************************************************************** */
@@ -1573,8 +1618,8 @@ public final class Parser
 
   /**
    * Log a syntax error based on the expectation of a particular token type
-   * @param token
-   * @param expected
+   * @param token    The token to use as a basis for logging a syntax error
+   * @param expected The token type expected for logging a syntax error
    */
   private void logSyntaxError(final Token token, final TokenType expected)
   {
@@ -1620,6 +1665,7 @@ public final class Parser
     if (tree == null)
     {
       System.out.println("<empty>");
+      return;
     }
 
     String tabString;
