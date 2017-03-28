@@ -26,7 +26,7 @@ public class SymbolTable extends SymbolItem
   /**
    * The internal HashMap being wrapped by the SymbolTable
    */
-  private HashMap<String, SymbolItem> table;
+  private HashMap<SymbolKey, SymbolItem> table;
 
   /**
    * The full constructor for the Symbol Table
@@ -57,7 +57,7 @@ public class SymbolTable extends SymbolItem
    */
   public void addScope(final String scopeName, final SymbolTable scopeTable)
   {
-    table.put(scopeName, scopeTable);
+    table.put(SymbolKey.CreateScopeKey(scopeName), scopeTable);
   }
 
   /**
@@ -86,8 +86,11 @@ public class SymbolTable extends SymbolItem
       // (the identifier should not be able to be located)
       final String identifier = node.getName();
 
+      // Create the key that will be used for existence and insertion
+      final SymbolKey idKey = SymbolKey.CreateIDKey(identifier);
+
       // If the identifier is able to be found, this is a semantic error.
-      if (table.containsKey(identifier))
+      if (table.containsKey(idKey))
       {
         // Return DUPLICATE_RECORD
         return SymbolTableCode.DUPLICATE_RECORD;
@@ -100,7 +103,7 @@ public class SymbolTable extends SymbolItem
       if ((nodeType == ASTNodeType.STATEMENT_VAR_DECLARATION) ||
           (nodeType == ASTNodeType.META_PARAMETER))
       {
-        table.put(identifier,
+        table.put(idKey,
             new SimpleSymbolRecord(
                 node.getLineNumber(),
                 node.getType(),
@@ -112,7 +115,7 @@ public class SymbolTable extends SymbolItem
       // with no size
       else if (nodeType == ASTNodeType.META_ARRAY_PARAMETER)
       {
-        table.put(identifier,
+        table.put(idKey,
             new ArraySymbolRecord(
                 node.getLineNumber(),
                 node.getType(),
@@ -127,7 +130,7 @@ public class SymbolTable extends SymbolItem
       {
         // Obtain the size from the child of the array declaration
         final int size = node.getChild(0).getValue();
-        table.put(identifier,
+        table.put(idKey,
             new ArraySymbolRecord(
                 node.getLineNumber(),
                 node.getType(),
@@ -148,8 +151,11 @@ public class SymbolTable extends SymbolItem
     final String currentScope   = SymbolTableUtilities.GetCurrentScope(scope);
     final String remainingScope = SymbolTableUtilities.GetRemainingScope(scope);
 
+    // Create the scope key to use for extracting the current scope
+    final SymbolKey scopeKey = SymbolKey.CreateScopeKey(currentScope);
+
     // Check to see if the current scope exists in the current table
-    SymbolItem currentScopeItem = table.get(currentScope);
+    SymbolItem currentScopeItem = table.get(scopeKey);
     // If the current scope does not exist, return a semantic error (invalid scope)
     if (currentScopeItem == null)
     {
@@ -174,6 +180,12 @@ public class SymbolTable extends SymbolItem
         memoryLocation);
   }
 
+  /**
+   *
+   * @param scope
+   * @param node
+   * @return
+   */
   public SymbolTableCode addScope(final String scope,
                                   final AbstractSyntaxTreeNode node)
   {
@@ -185,8 +197,11 @@ public class SymbolTable extends SymbolItem
       // (the best result is that the new scope CANNOT be found)
       final String scopeName = node.getName();
 
+      // Create the scope key to be used for checking for a duplicate scope
+      final SymbolKey scopeKey = SymbolKey.CreateScopeKey(scopeName);
+
       // If the scope name is able to be found, this is a semantic error.
-      if (table.containsKey(scopeName))
+      if (table.containsKey(scopeKey))
       {
         // Return DUPLICATE_SCOPE
         return SymbolTableCode.DUPLICATE_SCOPE;
@@ -198,7 +213,7 @@ public class SymbolTable extends SymbolItem
       // If the node type is a function declaration, create a function symbol table
       if (nodeType == ASTNodeType.META_FUNCTION)
       {
-        table.put(scopeName,
+        table.put(scopeKey,
             new FunctionSymbolTable(
                 node.getLineNumber(),
                 node.getType()));
@@ -211,7 +226,7 @@ public class SymbolTable extends SymbolItem
                (nodeType == ASTNodeType.STATEMENT_WHILE) ||
                (nodeType == ASTNodeType.META_ANONYMOUS_BLOCK))
       {
-        table.put(scopeName,
+        table.put(scopeKey,
             new SymbolTable(
                 node.getLineNumber(),
                 Void.class));
@@ -229,8 +244,12 @@ public class SymbolTable extends SymbolItem
     final String currentScope   = SymbolTableUtilities.GetCurrentScope(scope);
     final String remainingScope = SymbolTableUtilities.GetRemainingScope(scope);
 
+    // Create the scope key to be used for checking for the current scope
+    final SymbolKey scopeKey = SymbolKey.CreateScopeKey(currentScope);
+
     // Check to see if the current scope exists in the current table
-    SymbolItem currentScopeItem = table.get(currentScope);
+    SymbolItem currentScopeItem = table.get(scopeKey);
+
     // If the current scope does not exist, return a semantic error (invalid scope)
     if (currentScopeItem == null)
     {
@@ -263,29 +282,38 @@ public class SymbolTable extends SymbolItem
    *                    separated by a period ('.'). Example:
    *                        "scope1.scope2.scope3" indicates three scopes to examine
    * @param identifier  The identifier to look for.
+   * @param isScope     Boolean flag indicating if the desired item is a scope
    *
    * @return The most scoped SymbolItem that was able to be located, or null if no
    *         such identifier exists in the symbol table
    */
-  public SymbolItem getSymbolItem(String scope, String identifier)
+  public SymbolItem getSymbolItem(final String scope,
+                                  final String identifier,
+                                  final boolean isScope)
   {
+    // Create the key that will be used to look for the desired entry
+    final SymbolKey key = isScope ? SymbolKey.CreateScopeKey(identifier) :
+                                    SymbolKey.CreateIDKey(identifier);
     // Base case:
     // If no scope is provided, simply attempt to retrieve the
     // identifier from the current symbol table.
     if (scope.isEmpty())
     {
-      return table.get(identifier);
+      return table.get(key);
     }
 
     // Recursive case:
     // Look for remaining scopes and continue the descent from there
     SymbolItem item = null;
 
-    String currentScope = SymbolTableUtilities.GetCurrentScope(scope);
-    String remainingScope = SymbolTableUtilities.GetRemainingScope(scope);
+    final String currentScope = SymbolTableUtilities.GetCurrentScope(scope);
+    final String remainingScope = SymbolTableUtilities.GetRemainingScope(scope);
+
+    // Create the key that will be used to extract the current scope
+    final SymbolKey scopeKey = SymbolKey.CreateScopeKey(currentScope);
 
     // Get the current scope from the symbol table (hopefully it exists!)
-    SymbolItem scopeItem = table.get(currentScope);
+    SymbolItem scopeItem = table.get(scopeKey);
 
     // If the scope does exist...
     if (scopeItem != null)
@@ -298,7 +326,7 @@ public class SymbolTable extends SymbolItem
         // Perform a recursive descent into the new symbol table, using the
         // remaining scope as the current scope level
         SymbolTable symbolTable = (SymbolTable) scopeItem;
-        item = symbolTable.getSymbolItem(remainingScope, identifier);
+        item = symbolTable.getSymbolItem(remainingScope, identifier, isScope);
       }
     }
 
@@ -306,7 +334,7 @@ public class SymbolTable extends SymbolItem
     // the identifier at the current scope level
     if (item == null)
     {
-      item = table.get(identifier);
+      item = table.get(key);
     }
 
     // At this point, the item may actually still be null if the identifier was
@@ -316,8 +344,13 @@ public class SymbolTable extends SymbolItem
 
   public SymbolTableCode update(final String scope,
                                 final String identifier,
-                                final int lineNumber)
+                                final int lineNumber,
+                                final boolean isScope)
   {
+    // Create the key that will be used to look for the desired entry
+    final SymbolKey key = isScope ? SymbolKey.CreateScopeKey(identifier) :
+                                    SymbolKey.CreateIDKey(identifier);
+
     // Base Condition:
     // Scope is empty
     if (scope.isEmpty())
@@ -325,18 +358,18 @@ public class SymbolTable extends SymbolItem
       // Check to see if the identifier exists in the current scope (the identifier
       // should be located). If the identifier cannot be located, report a semantic
       // error (note that this might not actually be true error)
-      if (!table.containsKey(identifier))
+      if (!table.containsKey(key))
       {
         // Return RECORD_NOT_FOUND
         return SymbolTableCode.RECORD_NOT_FOUND;
       }
       // It has been determined that the identifier exists. Extract the record
       // and add the line number to the record's list
-      SymbolItem record = table.get(identifier);
+      SymbolItem record = table.get(key);
       record.addLine(lineNumber);
 
       // Re-insert the record back into the symbol table
-      table.put(identifier, record);
+      table.put(key, record);
 
       // The record was successfully updated. Return OK.
       return SymbolTableCode.OK;
@@ -346,17 +379,20 @@ public class SymbolTable extends SymbolItem
     final String currentScope   = SymbolTableUtilities.GetCurrentScope(scope);
     final String remainingScope = SymbolTableUtilities.GetRemainingScope(scope);
 
+    // Create the scope key to be used for checking for the current scope
+    final SymbolKey scopeKey = SymbolKey.CreateScopeKey(currentScope);
+
     // Check to see if the current scope exists in the table. If the current scope
     // does not exist in the table, report a semantic error (this is a TRUE semantic
     // error)
-    if (!table.containsKey(currentScope))
+    if (!table.containsKey(scopeKey))
     {
       // Return INVALID_SCOPE
       return SymbolTableCode.INVALID_SCOPE;
     }
 
     // Extract the current scope from the table.
-    final SymbolItem scopeItem = table.get(currentScope);
+    final SymbolItem scopeItem = table.get(scopeKey);
 
     // Make sure that scope is a symbol table. If not, report a semantic error
     // (this is a TRUE semantic error)
@@ -370,7 +406,10 @@ public class SymbolTable extends SymbolItem
 
     // Perform the recursive call on the update function with the remaining scope
     final SymbolTableCode returnCode =
-        ((SymbolTable)scopeItem).update(remainingScope, identifier, lineNumber);
+        ((SymbolTable)scopeItem).update(remainingScope,
+                                        identifier,
+                                        lineNumber,
+                                        isScope);
 
     // If the return code is either OK or INVALID_SCOPE, simply return the code
     if (returnCode == SymbolTableCode.OK ||
@@ -381,18 +420,18 @@ public class SymbolTable extends SymbolItem
 
     // The last check to perform is to see if the identifier exists in the current
     // scope.
-    if (!table.containsKey(identifier))
+    if (!table.containsKey(key))
     {
       // If the identifier cannot be found, return RECORD_NOT_FOUND
       return SymbolTableCode.RECORD_NOT_FOUND;
     }
     // It has been determined that the identifier exists. Extract the record
     // and add the line number to the record's list
-    SymbolItem record = table.get(identifier);
+    SymbolItem record = table.get(key);
     record.addLine(lineNumber);
 
     // Re-insert the record back into the symbol table
-    table.put(identifier, record);
+    table.put(key, record);
 
     // The record was successfully updated. Return OK.
     return SymbolTableCode.OK;
@@ -425,11 +464,11 @@ public class SymbolTable extends SymbolItem
     // Create a new set of Strings that constitute the table's current key set. This
     // is performed to be able to perform deletions on the table while processing
     // each key.
-    Set<String> keys = new HashSet<>(table.keySet());
+    Set<SymbolKey> keys = new HashSet<>(table.keySet());
     // Iterate over each key in the table's key set to look for symbol tables
-    for (final String keyName : keys)
+    for (final SymbolKey key : keys)
     {
-      SymbolItem item = table.get(keyName);
+      SymbolItem item = table.get(key);
       // Check to see if the current item is a symbol table
       if (item.getSymbolType() == SymbolItemType.SYMBOL_TABLE_SCOPE ||
           item.getSymbolType() == SymbolItemType.SYMBOL_TABLE_FUNCTION)
@@ -442,7 +481,7 @@ public class SymbolTable extends SymbolItem
         if (symbolTable.isEmpty())
         {
           // If the symbol table is empty, delete the key from the table
-          table.remove(keyName);
+          table.remove(key);
           continue;
         }
         // If the table is not empty, remove all of the empty entries in the symbol

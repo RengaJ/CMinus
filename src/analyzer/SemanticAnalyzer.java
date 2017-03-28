@@ -94,7 +94,7 @@ public final class SemanticAnalyzer
     symbolTable.removeAllEmpty();
 
     // Perform a final check to make sure there is a main method
-    if (symbolTable.getSymbolItem(GLOBAL_SCOPE, "main") == null)
+    if (symbolTable.getSymbolItem(GLOBAL_SCOPE, "main", true) == null)
     {
       reportSemanticError(SymbolTableCode.MAIN_NOT_FOUND, 0);
     }
@@ -185,7 +185,7 @@ public final class SemanticAnalyzer
         // Attempt to update the current identifier's reference, and report the
         // semantic error if one occurs
         reportSemanticError(
-            symbolTable.update(scope, node.getName(), node.getLineNumber()),
+            symbolTable.update(scope, node.getName(), node.getLineNumber(), false),
             node.getLineNumber());
 
         // Get the child of the identifier (the indexer)
@@ -197,7 +197,7 @@ public final class SemanticAnalyzer
           // Attempt to update the indexer's reference, and report the semantic
           // error if one occurs
           reportSemanticError(
-              symbolTable.update(scope, child.getName(), child.getLineNumber()),
+              symbolTable.update(scope, child.getName(), child.getLineNumber(), false),
               child.getLineNumber());
         }
         break;
@@ -208,7 +208,7 @@ public final class SemanticAnalyzer
         // Attempt to update the current identifier's reference, and report the
         // semantic error if one occurs
         reportSemanticError(
-            symbolTable.update(scope, node.getName(), node.getLineNumber()),
+            symbolTable.update(scope, node.getName(), node.getLineNumber(), false),
             node.getLineNumber());
         break;
       }
@@ -558,7 +558,7 @@ public final class SemanticAnalyzer
     final String name    = node.getName();
 
     // Attempt to update the function call's usage in the symbol table
-    SymbolTableCode result = symbolTable.update(scope, name, lineNumber);
+    SymbolTableCode result = symbolTable.update(scope, name, lineNumber, true);
 
     // Check to see if the processing succeeded
     if (result != SymbolTableCode.OK)
@@ -572,7 +572,7 @@ public final class SemanticAnalyzer
     }
 
     // Retrieve the function from the symbol table
-    SymbolItem function = symbolTable.getSymbolItem(scope, name);
+    SymbolItem function = symbolTable.getSymbolItem(scope, name, true);
 
     // Make sure the function retrieved is actually a function symbol table
     if (function.getSymbolType() != SymbolItemType.SYMBOL_TABLE_FUNCTION)
@@ -635,9 +635,12 @@ public final class SemanticAnalyzer
       // the symbol table (although they might not...)
       else
       {
+        // Determine if the argument is a scope
+        boolean isScope = arg.getNodeType() == ASTNodeType.EXPRESSION_CALL;
+
         // Retrieve the current argument from the symbol table
         final SymbolItem argument =
-            symbolTable.getSymbolItem(scope, arg.getName());
+            symbolTable.getSymbolItem(scope, arg.getName(), isScope);
 
         // Check to make sure the argument exists (not null)
         if (argument == null)
