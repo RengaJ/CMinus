@@ -15,7 +15,10 @@ public enum SymbolTableCode
   INVALID_RHS       ("Right-hand side of operator invalid."),
   INVALID_PTYPE     ("Invalid parameter type."),
   BAD_PARAM_COUNT   ("Incorrect number of parameters."),
-  SEMANTIC_FAILURE  ("Type mismatch.");
+  SEMANTIC_FAILURE  ("Type mismatch."),
+  NESTED_DEFINITION ("Function not defined at global scope."),
+  VOID_ARGUMENT     ("Function cannot have void paramter in argument list."),
+  MAIN_NOT_FOUND    ("main method not found.");
 
   private String errorString;
 
