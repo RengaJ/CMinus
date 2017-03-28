@@ -208,7 +208,8 @@ public class SymbolTable extends SymbolItem
       // If the node type is either an If-Statement or a While-Loop, create a simple
       // symbol table
       else if ((nodeType == ASTNodeType.STATEMENT_IF) ||
-               (nodeType == ASTNodeType.STATEMENT_WHILE))
+               (nodeType == ASTNodeType.STATEMENT_WHILE) ||
+               (nodeType == ASTNodeType.META_ANONYMOUS_BLOCK))
       {
         table.put(scopeName,
             new SymbolTable(

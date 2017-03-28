@@ -293,6 +293,12 @@ public final class SemanticAnalyzer
         processWhileStatement(node, scope);
         break;
       }
+      // If the node is an anonymous block...
+      case META_ANONYMOUS_BLOCK:
+      {
+        processAnonymousBlock(node, scope);
+        break;
+      }
       // If the node is a constant value ( NUM ) or is unrecognized...
       default:
       {
@@ -681,6 +687,28 @@ public final class SemanticAnalyzer
     } // end WHILE
 
     // Function complete
+  }
+
+  /**
+   * Perform semantic analysis on an anonymous scope block.
+   *
+   * @param node  The AbstractSyntaxTreeNode in which the anonymous block is
+   *              defined
+   * @param scope The scope at which the anonymous block should be processed
+   */
+  private void processAnonymousBlock(final AbstractSyntaxTreeNode node,
+                                     final String scope)
+  {
+    // Attempt to add the scope to the symbol table and report any semantic errors
+    // that may have occurred
+    reportSemanticError(symbolTable.addScope(scope, node), node.getLineNumber());
+
+    // Create a new scope that will be used for the duration of the anonymous
+    // block's processing
+    final String newScope = String.format("%s.%s", scope, node.getName());
+
+    // Process the contents of the anonymous block
+    processTree(node.getChild(0), newScope);
   }
 
   /**
