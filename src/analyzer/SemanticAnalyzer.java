@@ -3,14 +3,11 @@ package analyzer;
 import analyzer.symbol.*;
 import analyzer.symbol.table.*;
 import globals.CompilerFlags;
+import globals.ConsoleColor;
 import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
 import syntaxtree.statement.IfStatementNode;
 import syntaxtree.statement.WhileStatementNode;
-
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Queue;
 
 /**
  * Class that represents the Semantic Analysis portion of the compilation process.
@@ -732,9 +729,10 @@ public final class SemanticAnalyzer
     // If the provided error is not OK, present the error to the user
     if (errorCode != SymbolTableCode.OK)
     {
-        System.out.printf("\u001B[31m***** SEMANTIC ERROR - %s - Line %d *****\u001B[0m\n",
+        ConsoleColor.PrintRed(String.format(
+            "***** SEMANTIC ERROR - %s - Line %d *****",
             errorCode.toString(),
-            lineNumber);
+            lineNumber));
 
         // Flip the 'errorOccurred' flag to true
         errorOccurred = true;

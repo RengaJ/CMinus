@@ -1,6 +1,5 @@
 package syntaxtree.meta;
 
-import syntaxtree.ASTNodeType;
 import tokens.TokenType;
 
 /**
