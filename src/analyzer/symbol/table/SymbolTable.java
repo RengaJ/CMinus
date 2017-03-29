@@ -5,9 +5,7 @@ import analyzer.symbol.record.*;
 import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Class that represents a Symbol Table data structure.
@@ -487,6 +485,64 @@ public class SymbolTable extends SymbolItem
         // If the table is not empty, remove all of the empty entries in the symbol
         // table (recursive call)
         symbolTable.removeAllEmpty();
+
+        // Check to see if the symbol table is now empty
+        if (symbolTable.isEmpty())
+        {
+          // If the symbol table is now empty, delete the key from the table
+          table.remove(key);
+        }
+      }
+    }
+  }
+
+  public void printTable(final String scope)
+  {
+    Queue<SymbolTable> symbolTableQueue = new ArrayDeque<>();
+    Queue<String> scopeQueue = new ArrayDeque<>();
+
+    String label;
+    if (getSymbolType() == SymbolItemType.SYMBOL_TABLE_FUNCTION)
+    {
+      label = "Function";
+    }
+    else
+    {
+      label = "Scope";
+    }
+    System.out.printf("%s: \"%s\" %s\n", label, scope, toString());
+    System.out.println("----------------");
+
+    for (final SymbolKey key : table.keySet())
+    {
+      SymbolItem record = table.get(key);
+      System.out.printf("%s: %s %s\n", key.getValue().toString(),
+                                       key.getKey(),
+                                       record.toString());
+
+      if (key.getValue() == SymbolKey.KeyType.SCOPE)
+      {
+        symbolTableQueue.add((SymbolTable)record);
+        scopeQueue.add(key.getKey());
+      }
+    }
+
+    if (table.size() == 0)
+    {
+      System.out.println("< empty >");
+    }
+
+    System.out.println("");
+
+    while (!symbolTableQueue.isEmpty())
+    {
+      if (scope.isEmpty())
+      {
+        symbolTableQueue.poll().printTable(scopeQueue.poll());
+      }
+      else
+      {
+        symbolTableQueue.poll().printTable(String.format("%s.%s", scope, scopeQueue.poll()));
       }
     }
   }

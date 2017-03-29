@@ -38,7 +38,7 @@ public class SymbolKey extends HashMap.SimpleEntry<String, SymbolKey.KeyType>
    * Enumeration that is used to identify the type of record being stored
    * in the symbol table
    */
-  public static enum KeyType
+  public enum KeyType
   {
     IDENTIFIER,      // The record being stored is an identifier
     SCOPE            // The record being stored is a scope (function or body)

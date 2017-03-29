@@ -1,5 +1,7 @@
 package tokens;
 
+import globals.ConsoleColor;
+
 /**
  * A binary search tree that manages Token objects
  * @param <E> The type of Token that will be managed by the binary search tree
@@ -78,7 +80,7 @@ public final class TokenTree<E extends Token>
       }
       catch (IllegalAccessException | InstantiationException e)
       {
-        System.err.println("Illegal Instantiation of Token class");
+        ConsoleColor.PrintRed("Illegal Instantiation of Token class");
         return null;
       }
     }

@@ -1,9 +1,9 @@
 package main;
 
 import analyzer.SemanticAnalyzer;
-import analyzer.symbol.SymbolItem;
 import analyzer.symbol.table.SymbolTable;
 import globals.CompilerFlags;
+import globals.ConsoleColor;
 import parser.Parser;
 import scanner.Scanner;
 import syntaxtree.AbstractSyntaxTreeNode;
@@ -39,7 +39,7 @@ public final class Main
     // operate correctly
     if (args.length == 0)
     {
-      System.err.println("Incorrect program usage. Valid usage is as follows:");
+      ConsoleColor.PrintRed("Incorrect program usage. Valid usage is as follows:");
       showProgramUsage();
       System.exit(-1);
     }
@@ -112,7 +112,7 @@ public final class Main
         // terminate the program
         default:
         {
-          System.err.println(
+          ConsoleColor.PrintRed(
               String.format(
                   "Unknown flag %s detected. Valid usage is as follows:",
                   args[i]));
@@ -141,7 +141,7 @@ public final class Main
     }
     catch (FileNotFoundException fnfe)
     {
-      System.err.println(
+      ConsoleColor.PrintRed(
           String.format(
               "File %s does not exist. Please verify file " +
                   "location and try again.",
@@ -169,8 +169,8 @@ public final class Main
         tree = parser.parse(tokens);
         if (parser.syntaxErrorOccurred())
         {
-          System.err.println("Errors occurred during parsing.");
-          System.err.println("Terminating compilation.");
+          ConsoleColor.PrintRed("Errors occurred during parsing.");
+          ConsoleColor.PrintRed("Terminating compilation.");
 
           System.exit(-1);
         }
@@ -181,12 +181,18 @@ public final class Main
 
         symbolTable = analyzer.analyze(tree);
 
+        if (CompilerFlags.TraceAnalyzer)
+        {
+          System.out.println("\nProduced Symbol Tables:\n");
+          symbolTable.printTable("");
+        }
+
         System.out.println("Analyzer Complete");
 
         if (analyzer.errorOccurred())
         {
-          System.err.println("Errors occurred during semantic analysis.");
-          System.err.println("Terminating compilation.");
+          ConsoleColor.PrintRed("Errors occurred during semantic analysis.");
+          ConsoleColor.PrintRed("Terminating compilation.");
 
           System.exit(-1);
         }
@@ -195,7 +201,7 @@ public final class Main
     }
     catch (IOException ioe)
     {
-      System.err.println("A fatal I/O error occurred. Please see" +
+      ConsoleColor.PrintRed("A fatal I/O error occurred. Please see" +
           " stack trace for more details:");
       ioe.printStackTrace(System.err);
     }
@@ -206,30 +212,30 @@ public final class Main
    */
   private static void showProgramUsage()
   {
-    System.err.println("Main [COMPILER_OPTIONS] [TRACE_OPTION] <filename>");
-    System.err.println("-------------------------");
-    System.err.println("Valid COMPILER_OPTIONS (choose one) (optional):");
-    System.err.println("-NO_PARSE     : Turn off parser operations " +
+    ConsoleColor.PrintRed("Main [COMPILER_OPTIONS] [TRACE_OPTION] <filename>");
+    ConsoleColor.PrintRed("-------------------------");
+    ConsoleColor.PrintRed("Valid COMPILER_OPTIONS (choose one) (optional):");
+    ConsoleColor.PrintRed("-NO_PARSE     : Turn off parser operations " +
         "(run compiler in scan-only mode)");
-    System.err.println("-NO_ANALYZE   : Turn off semantic analysis operations" +
+    ConsoleColor.PrintRed("-NO_ANALYZE   : Turn off semantic analysis operations" +
         " (run compiler in parser-only mode)");
-    System.err.println("-NO_CODE      : Turn off code generation operations" +
+    ConsoleColor.PrintRed("-NO_CODE      : Turn off code generation operations" +
         " (run compiler in analysis-only mode)");
-    System.err.println("[Note that -NO_PARSE will take precedence over " +
+    ConsoleColor.PrintRed("[Note that -NO_PARSE will take precedence over " +
         "-NO_ANALYZE mode, so only one flag is needed]");
-    System.err.println("");
-    System.err.println("Trace Flags (choose multiple) (optional):");
-    System.err.println("-EchoSource   : Display the source as it's being scanned");
-    System.err.println("-TraceScan    : Turn on scanner trace output");
-    System.err.println("-TraceParse   : Turn on parser trace output");
-    System.err.println("-TraceAnalyze : Turn on semantic analyzer trace output");
-    System.err.println("-TraceCode    : Turn on code generator trace output");
-    System.err.println("");
-    System.err.println("              : The name of the file to compile. " +
+    ConsoleColor.PrintRed("");
+    ConsoleColor.PrintRed("Trace Flags (choose multiple) (optional):");
+    ConsoleColor.PrintRed("-EchoSource   : Display the source as it's being scanned");
+    ConsoleColor.PrintRed("-TraceScan    : Turn on scanner trace output");
+    ConsoleColor.PrintRed("-TraceParse   : Turn on parser trace output");
+    ConsoleColor.PrintRed("-TraceAnalyze : Turn on semantic analyzer trace output");
+    ConsoleColor.PrintRed("-TraceCode    : Turn on code generator trace output");
+    ConsoleColor.PrintRed("");
+    ConsoleColor.PrintRed("              : The name of the file to compile. " +
         "This file name should not have the");
-    System.err.println("<filename>    : .cm extension when provided, as " +
+    ConsoleColor.PrintRed("<filename>    : .cm extension when provided, as " +
         "the compiler will append it");
-    System.err.println("              : automatically. THIS FIELD IS REQUIRED");
+    ConsoleColor.PrintRed("              : automatically. THIS FIELD IS REQUIRED");
   }
 
   /**

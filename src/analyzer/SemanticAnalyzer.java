@@ -8,6 +8,10 @@ import syntaxtree.AbstractSyntaxTreeNode;
 import syntaxtree.statement.IfStatementNode;
 import syntaxtree.statement.WhileStatementNode;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Queue;
+
 /**
  * Class that represents the Semantic Analysis portion of the compilation process.
  * This class will take an AbstractSyntaxTreeNode obtained from the Parser and
@@ -67,7 +71,7 @@ public final class SemanticAnalyzer
 
     // Create the global symbol table that will be used to keep
     // track of everything in the semantic analysis
-    symbolTable = new SymbolTable(-1, null);
+    symbolTable = new SymbolTable(-1, Void.class);
 
     // Add the input function call (assumes it's already defined)
     symbolTable.addScope("input",
@@ -728,12 +732,12 @@ public final class SemanticAnalyzer
     // If the provided error is not OK, present the error to the user
     if (errorCode != SymbolTableCode.OK)
     {
-      System.err.printf("SEMANTIC ERROR - %s - Line %d\n",
-          errorCode.toString(),
-          lineNumber);
+        System.out.printf("\u001B[31m***** SEMANTIC ERROR - %s - Line %d *****\u001B[0m\n",
+            errorCode.toString(),
+            lineNumber);
 
-      // Flip the 'errorOccurred' flag to true
-      errorOccurred = true;
+        // Flip the 'errorOccurred' flag to true
+        errorOccurred = true;
     }
   }
 }

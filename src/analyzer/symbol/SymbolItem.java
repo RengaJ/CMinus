@@ -88,4 +88,26 @@ public abstract class SymbolItem
    * @return The enumeration that identifies the symbol item
    */
   public abstract SymbolItemType getSymbolType();
+
+  @Override
+  public String toString()
+  {
+    StringBuilder builder = new StringBuilder("");
+
+    builder.append(String.format(" - %s - ", type.getSimpleName()));
+
+    builder.append("Lines: [");
+    for (int i = 0; i < lines.size(); ++i)
+    {
+      builder.append(String.format("%d", lines.get(i)));
+      if (i + 1 < lines.size())
+      {
+        builder.append(", ");
+      }
+    }
+
+    builder.append(String.format("] Declared: %d", declared));
+
+    return builder.toString();
+  }
 }
