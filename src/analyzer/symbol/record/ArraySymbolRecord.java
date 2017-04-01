@@ -30,4 +30,14 @@ public final class ArraySymbolRecord extends SymbolRecord
   {
     return true;
   }
+
+  @Override
+  public String toString()
+  {
+    StringBuilder builder = new StringBuilder(super.toString());
+
+    builder.append(String.format(" Array (Size: %d)", size));
+
+    return builder.toString();
+  }
 }

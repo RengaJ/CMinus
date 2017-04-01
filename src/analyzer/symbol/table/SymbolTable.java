@@ -101,11 +101,11 @@ public class SymbolTable extends SymbolItem
       if ((nodeType == ASTNodeType.STATEMENT_VAR_DECLARATION) ||
           (nodeType == ASTNodeType.META_PARAMETER))
       {
-        table.put(idKey,
-            new SimpleSymbolRecord(
-                node.getLineNumber(),
-                node.getType(),
-                memoryLocation));
+        SimpleSymbolRecord record = new SimpleSymbolRecord(node.getLineNumber(),
+                                                           node.getType(),
+                                                           memoryLocation);
+        record.setIsParameter(nodeType == ASTNodeType.META_PARAMETER);
+        table.put(idKey, record);
         // Terminate processing (return OK)
         return SymbolTableCode.OK;
       }
@@ -113,12 +113,12 @@ public class SymbolTable extends SymbolItem
       // with no size
       else if (nodeType == ASTNodeType.META_ARRAY_PARAMETER)
       {
-        table.put(idKey,
-            new ArraySymbolRecord(
-                node.getLineNumber(),
-                node.getType(),
-                memoryLocation,
-                0));
+        ArraySymbolRecord record = new ArraySymbolRecord(node.getLineNumber(),
+                                                         node.getType(),
+                                                         memoryLocation,
+                                                         0);
+        record.setIsParameter(true);
+        table.put(idKey, record);
         // Terminate processing (return OK)
         return SymbolTableCode.OK;
       }

@@ -106,4 +106,27 @@ public final class FunctionSymbolTable extends SymbolTable
   {
     return SymbolItemType.SYMBOL_TABLE_FUNCTION;
   }
+
+  @Override
+  public String toString()
+  {
+    StringBuilder builder = new StringBuilder(super.toString());
+
+    builder.append(" Parameters:");
+    if (parameterCount == 0)
+    {
+      builder.append(" NONE");
+    }
+    else
+    {
+      for (int i = 0; i < parameterCount; ++i)
+      {
+        String paramType = (arrayParameter.get(i) ? "int[]" : "int");
+
+        builder.append(String.format(" %s", paramType));
+      }
+    }
+
+    return builder.toString();
+  }
 }

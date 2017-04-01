@@ -41,6 +41,11 @@ public final class SemanticAnalyzer
   private int memoryLocation;
 
   /**
+   * The current parameter list count
+   */
+  private int parameterCount;
+
+  /**
    * Full constructor for the SemanticAnalyzer
    */
   public SemanticAnalyzer()
@@ -49,6 +54,7 @@ public final class SemanticAnalyzer
     errorOccurred       = false;
     anonymousScopeCount = 0;
     memoryLocation      = 0;
+    parameterCount      = 0;
   }
 
   /**
@@ -333,8 +339,14 @@ public final class SemanticAnalyzer
     // Attempt to add the function declaration
     reportSemanticError(symbolTable.addScope(scope, node), node.getLineNumber());
 
+    // Reset the parameter counter
+    parameterCount = 0;
+
     // Process parameters
     processTree(node.getChild(0), node.getName());
+
+    // Reset the parameter counter
+    parameterCount = 0;
 
     // Process the function body
     processTree(node.getChild(1), node.getName());
@@ -364,7 +376,7 @@ public final class SemanticAnalyzer
       // Add a record to the symbol table, using a memory location of 0 (parameters
       // won't know the memory location, so it's okay to do this)
       reportSemanticError(
-          symbolTable.addRecord(scope, node, 0),
+          symbolTable.addRecord(scope, node, parameterCount++),
           node.getLineNumber());
 
       // If there is another argument in the list and the next type is void,
