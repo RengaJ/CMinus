@@ -9,6 +9,13 @@ public final class SymbolTableUtilities
   /** Private constructor. Should not be used */
   private SymbolTableUtilities() {}
 
+  /**
+   * Retrieve the current scope from the period delimited scope string.
+   *
+   * @param scope The scope string from which the current scope shall be
+   *              retrieved.
+   * @return The current scope, or "" if no scope exists.
+   */
   public static String GetCurrentScope(final String scope)
   {
     if (scope == null || scope.isEmpty())
@@ -26,6 +33,13 @@ public final class SymbolTableUtilities
     return scope.substring(0, scopeEnd);
   }
 
+  /**
+   * Retrieve the remaining scope from the period delimited scope string.
+   *
+   * @param scope The scope string from which the remaining scope shall be
+   *              retrieved.
+   * @return The current scope, or "" if no scope exists.
+   */
   public static String GetRemainingScope(final String scope)
   {
     if (scope == null || scope.isEmpty())

@@ -3,12 +3,22 @@ package analyzer.symbol.record;
 import analyzer.symbol.SymbolItemType;
 
 /**
- *
+ * Class that represents a record used for containing array information.
  */
 public final class ArraySymbolRecord extends SymbolRecord
 {
+  /**
+   * The size of the array
+   */
   private int size;
 
+  /**
+   * The full constructor for the ArraySymbolRecord
+   * @param declaredLine   The on which the array was declared
+   * @param classType      The type of the array being declared
+   * @param memoryLocation The memory location of the array being declared
+   * @param size           The size of the array being declared
+   */
   public ArraySymbolRecord(final int declaredLine,
                            final Class<?> classType,
                            final int memoryLocation,
@@ -19,6 +29,11 @@ public final class ArraySymbolRecord extends SymbolRecord
     this.size = size;
   }
 
+  /**
+   * Return the SymbolItemType of the ArraySymbolRecord
+   *
+   * @return SYMBOL_RECORD_ARRAY
+   */
   @Override
   public SymbolItemType getSymbolType()
   {

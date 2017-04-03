@@ -266,6 +266,12 @@ public final class Parser
         break;
       }
 
+      case VARIABLE_NUMBER:
+      {
+        statement = processConstant();
+        break;
+      }
+
       // If none of the above token types were matched, there is an
       // issue with the current token. Log a syntax error and do not
       // provide a statement
