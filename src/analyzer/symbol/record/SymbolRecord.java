@@ -27,9 +27,9 @@ public abstract class SymbolRecord extends SymbolItem
    * @param classType      The type of identifying being declared
    * @param memoryLocation The memory location of the identifier
    */
-  private SymbolRecord(final int declaredLine,
-                      final Class<?> classType,
-                      final int memoryLocation)
+  SymbolRecord(final int declaredLine,
+               final Class<?> classType,
+               final int memoryLocation)
   {
     super(declaredLine, classType);
 
