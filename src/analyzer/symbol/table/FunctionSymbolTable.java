@@ -54,6 +54,14 @@ public final class FunctionSymbolTable extends SymbolTable
     arrayParameter.add(isArray);
   }
 
+  /**
+   * Determine if the provided parameter index is an array.
+   * Returns false if either the parameter is not an array or
+   * if the parameter index is out of bounds.
+   *
+   * @param index The parameter number to examine
+   * @return True if the parameter index is in bounds and is an array
+   */
   public boolean isParameterArray(final int index)
   {
     if (index < 0 || index >= parameterCount)
@@ -74,20 +82,38 @@ public final class FunctionSymbolTable extends SymbolTable
     return parameterCount;
   }
 
+  /**
+   * Add a record to the FunctionSymbolTable
+   *
+   * @param scope The scope level for the addition of the record. Scopes have a
+   *              format of "scope1.scope2. ...". The root scope is defined as "".
+   * @param node           The AbstractSyntaxTreeNode that contains the identifier
+   *                       that is to be added
+   * @param memoryLocation The location in memory where the identifier should
+   *                       reside.
+   *
+   * @return An error code indicating the success or failure of the addition
+   */
   @Override
   public SymbolTableCode addRecord(final String scope,
-                                   final AbstractSyntaxTreeNode identifier,
+                                   final AbstractSyntaxTreeNode node,
                                    final int memoryLocation)
   {
-    SymbolTableCode returnCode = super.addRecord(scope, identifier, memoryLocation);
+    // Let the SymbolTable class perform the actual addition logic
+    SymbolTableCode returnCode = super.addRecord(scope, node, memoryLocation);
 
+    // If the addition went well...
     if (returnCode == SymbolTableCode.OK)
     {
-      if (identifier.getNodeType() == ASTNodeType.META_PARAMETER)
+      // If the record was a simple parameter, add a non-array entry to the
+      // arrayParameter list
+      if (node.getNodeType() == ASTNodeType.META_PARAMETER)
       {
         addParameter(false);
       }
-      else if (identifier.getNodeType() == ASTNodeType.META_ARRAY_PARAMETER)
+      // If the record was an array parameter, add an array entry to the
+      // arrayParameter list
+      else if (node.getNodeType() == ASTNodeType.META_ARRAY_PARAMETER)
       {
         addParameter(true);
       }
@@ -107,6 +133,11 @@ public final class FunctionSymbolTable extends SymbolTable
     return SymbolItemType.SYMBOL_TABLE_FUNCTION;
   }
 
+  /**
+   * Obtain the String representation of the function symbol table
+   *
+   * @return The String representation of the function symbol table
+   */
   @Override
   public String toString()
   {

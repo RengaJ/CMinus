@@ -3,16 +3,31 @@ package analyzer.symbol.record;
 import analyzer.symbol.SymbolItem;
 
 /**
- * Immutable class used to store information about an identifier in the symbol
+ * Class used to store information about an identifier in the symbol
  * table.
  */
 public abstract class SymbolRecord extends SymbolItem
 {
+  /**
+   * The memory location of the record where it was declared. Note
+   * that if the symbol record is a parameter, it's actually the
+   * parameter number
+   */
   private int memoryLocation;
 
+  /**
+   * Flag identifying the record as a parameter or not
+   */
   private boolean isParameter;
 
-  public SymbolRecord(final int declaredLine,
+  /**
+   * Full constructor for the SymbolRecord
+   *
+   * @param declaredLine   The line on which the record was declared
+   * @param classType      The type of identifying being declared
+   * @param memoryLocation The memory location of the identifier
+   */
+  private SymbolRecord(final int declaredLine,
                       final Class<?> classType,
                       final int memoryLocation)
   {
@@ -21,18 +36,38 @@ public abstract class SymbolRecord extends SymbolItem
     this.memoryLocation = memoryLocation;
   }
 
-  public void setIsParameter(final boolean parameterStatus)
+  /**
+   * Mark (or unmark) the record as a parameter
+   *
+   * @param parameterStatus Flag indicating this record as a parameter
+   */
+  public void makeParameter(final boolean parameterStatus)
   {
     isParameter = parameterStatus;
   }
 
+  /**
+   * Retrieve the memory location of the record
+   *
+   * @return The memory location of the record
+   */
   public int getMemoryLocation()
   {
     return memoryLocation;
   }
 
+  /**
+   * Determine if the record represents an array
+   *
+   * @return Flag indicating if the record represents an array
+   */
   public abstract boolean isArray();
 
+  /**
+   * Obtain the String representation of the record
+   *
+   * @return The String representation of the record
+   */
   @Override
   public String toString()
   {

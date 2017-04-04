@@ -4,7 +4,7 @@ package analyzer.symbol.table;
  * A static collection of utility functions useful for the
  * symbol table's operations
  */
-public final class SymbolTableUtilities
+final class SymbolTableUtilities
 {
   /** Private constructor. Should not be used */
   private SymbolTableUtilities() {}
@@ -16,7 +16,7 @@ public final class SymbolTableUtilities
    *              retrieved.
    * @return The current scope, or "" if no scope exists.
    */
-  public static String GetCurrentScope(final String scope)
+  static String GetCurrentScope(final String scope)
   {
     if (scope == null || scope.isEmpty())
     {
@@ -40,7 +40,7 @@ public final class SymbolTableUtilities
    *              retrieved.
    * @return The current scope, or "" if no scope exists.
    */
-  public static String GetRemainingScope(final String scope)
+  static String GetRemainingScope(final String scope)
   {
     if (scope == null || scope.isEmpty())
     {

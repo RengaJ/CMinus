@@ -104,7 +104,7 @@ public class SymbolTable extends SymbolItem
         SimpleSymbolRecord record = new SimpleSymbolRecord(node.getLineNumber(),
                                                            node.getType(),
                                                            memoryLocation);
-        record.setIsParameter(nodeType == ASTNodeType.META_PARAMETER);
+        record.makeParameter(nodeType == ASTNodeType.META_PARAMETER);
         table.put(idKey, record);
         // Terminate processing (return OK)
         return SymbolTableCode.OK;
@@ -117,7 +117,7 @@ public class SymbolTable extends SymbolItem
                                                          node.getType(),
                                                          memoryLocation,
                                                          0);
-        record.setIsParameter(true);
+        record.makeParameter(true);
         table.put(idKey, record);
         // Terminate processing (return OK)
         return SymbolTableCode.OK;
@@ -179,10 +179,16 @@ public class SymbolTable extends SymbolItem
   }
 
   /**
+   * Attempt to add a scope the symbol table, given a scope level and the node
+   * containing the information for addition.
    *
-   * @param scope
-   * @param node
-   * @return
+   * @param scope The scope level for the addition of the record. Scopes have a
+   *              format of "scope1.scope2. ...". The root scope is defined as "".
+   * @param node  The node that contains the information to use for creating a new
+   *              scope.
+   *
+   * @return Returns SymbolTableCode.OK if the addition of the scope was
+   *         successful, and anything else if something fails.
    */
   public SymbolTableCode addScope(final String scope,
                                   final AbstractSyntaxTreeNode node)
@@ -340,6 +346,24 @@ public class SymbolTable extends SymbolItem
     return item;
   }
 
+  /**
+   * Attempt to update a record or scope usage with a line number,
+   * given the scope level, the identifier in question, the line
+   * number to add and an indication of whether this is a scope or
+   * a record being updated.
+   *
+   *
+   * @param scope       The scope string used to identify how far to look into the
+   *                    symbol table. A scope string consists of multiple scopes
+   *                    separated by a period ('.'). Example:
+   *                        "scope1.scope2.scope3" indicates three scopes to examine
+   * @param identifier  The identifier to look for.
+   * @param lineNumber  The line number of usage
+   * @param isScope     Boolean flag indicating if the desired item is a scope
+   *
+   * @return Returns SymbolTableCode.OK if the update was successful, and
+   *         anything else if something fails.
+   */
   public SymbolTableCode update(final String scope,
                                 final String identifier,
                                 final int lineNumber,
@@ -496,11 +520,19 @@ public class SymbolTable extends SymbolItem
     }
   }
 
+  /**
+   * Print a symbol table and all of the contained symbol tables to the console.
+   *
+   * @param scope The scope being currently printed
+   */
   public void printTable(final String scope)
   {
+    // Create a queue of found symbol tables and scopes for recursive
+    // printing
     Queue<SymbolTable> symbolTableQueue = new ArrayDeque<>();
     Queue<String> scopeQueue = new ArrayDeque<>();
 
+    // Get the label to use for printing the scope
     String label;
     if (getSymbolType() == SymbolItemType.SYMBOL_TABLE_FUNCTION)
     {
@@ -513,20 +545,23 @@ public class SymbolTable extends SymbolItem
     System.out.printf("%s: \"%s\" %s\n", label, scope, toString());
     System.out.println("----------------");
 
+    // Go through each item in the table and print out a summary
     for (final SymbolKey key : table.keySet())
     {
       SymbolItem record = table.get(key);
-      System.out.printf("%s: %s %s\n", key.getValue().toString(),
-                                       key.getKey(),
+      System.out.printf("%s: %s %s\n", key.getType().toString(),
+                                       key.getName(),
                                        record.toString());
 
-      if (key.getValue() == SymbolKey.KeyType.SCOPE)
+      // If the entry is a symbol table, add it to the queue
+      if (key.getType() == SymbolKey.KeyType.SCOPE)
       {
         symbolTableQueue.add((SymbolTable)record);
         scopeQueue.add(key.getKey());
       }
     }
 
+    // If the table doesn't contain entries, simply print < empty >
     if (table.size() == 0)
     {
       System.out.println("< empty >");
@@ -534,6 +569,7 @@ public class SymbolTable extends SymbolItem
 
     System.out.println("");
 
+    // While the queue is not empty, print the next table in the queue
     while (!symbolTableQueue.isEmpty())
     {
       if (scope.isEmpty())
@@ -542,7 +578,8 @@ public class SymbolTable extends SymbolItem
       }
       else
       {
-        symbolTableQueue.poll().printTable(String.format("%s.%s", scope, scopeQueue.poll()));
+        symbolTableQueue.poll().printTable(
+            String.format("%s.%s", scope, scopeQueue.poll()));
       }
     }
   }

@@ -14,7 +14,7 @@ public final class ArraySymbolRecord extends SymbolRecord
 
   /**
    * The full constructor for the ArraySymbolRecord
-   * @param declaredLine   The on which the array was declared
+   * @param declaredLine   The line on which the array was declared
    * @param classType      The type of the array being declared
    * @param memoryLocation The memory location of the array being declared
    * @param size           The size of the array being declared
@@ -40,12 +40,22 @@ public final class ArraySymbolRecord extends SymbolRecord
     return SymbolItemType.SYMBOL_RECORD_ARRAY;
   }
 
+  /**
+   * Determine if the record represents an array
+   *
+   * @return Flag indicating if the record represents an array
+   */
   @Override
   public boolean isArray()
   {
     return true;
   }
 
+  /**
+   * Obtain the String representation of the record
+   *
+   * @return The String representation of the record
+   */
   @Override
   public String toString()
   {

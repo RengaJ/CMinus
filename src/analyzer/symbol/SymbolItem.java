@@ -89,6 +89,11 @@ public abstract class SymbolItem
    */
   public abstract SymbolItemType getSymbolType();
 
+  /**
+   * Obtain the String representation of the symbol item
+   *
+   * @return The String representation of the symbol item
+   */
   @Override
   public String toString()
   {
