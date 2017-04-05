@@ -9,6 +9,8 @@ import syntaxtree.AbstractSyntaxTreeNode;
 import syntaxtree.statement.IfStatementNode;
 import syntaxtree.statement.WhileStatementNode;
 
+import java.util.Stack;
+
 /**
  * Class that represents the Semantic Analysis portion of the compilation process.
  * This class will take an AbstractSyntaxTreeNode obtained from the Parser and
@@ -36,9 +38,17 @@ public final class SemanticAnalyzer
   private boolean errorOccurred;
 
   /**
-   * The current memory location for storing identifiers in the symbol table
+   * The current memory location for storing identifiers in the symbol table.
+   * Reset for each function scope to properly prepare the stack in the code
+   * generation step of the compiler.
    */
   private int memoryLocation;
+
+  /**
+   * Stack of memory locations such that functions and variables
+   * can be declared in an interleaved manner.
+   */
+  private Stack<Integer> memoryStack;
 
   /**
    * The current parameter list count
@@ -55,6 +65,7 @@ public final class SemanticAnalyzer
     anonymousScopeCount = 0;
     memoryLocation      = 0;
     parameterCount      = 0;
+    memoryStack         = new Stack<>();
   }
 
   /**
@@ -71,6 +82,9 @@ public final class SemanticAnalyzer
 
     // Reset the memory location
     memoryLocation = 0;
+
+    // Reset the memory stack
+    memoryStack.clear();
 
     // Create the global symbol table that will be used to keep
     // track of everything in the semantic analysis
@@ -348,8 +362,17 @@ public final class SemanticAnalyzer
     // Reset the parameter counter
     parameterCount = 0;
 
+    // Add the current memory count to the memory stack
+    memoryStack.push(memoryLocation);
+
+    // Reset the memory location
+    memoryLocation = 0;
+
     // Process the function body
     processTree(node.getChild(1), node.getName());
+
+    // Restore the memory location
+    memoryLocation = memoryStack.pop();
   }
 
   /**
