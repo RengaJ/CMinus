@@ -2,6 +2,7 @@ package main;
 
 import analyzer.SemanticAnalyzer;
 import analyzer.symbol.table.SymbolTable;
+import codegen.CodeGenerator;
 import globals.CompilerFlags;
 import globals.ConsoleColor;
 import parser.Parser;
@@ -181,14 +182,6 @@ public final class Main
 
         symbolTable = analyzer.analyze(tree);
 
-        if (CompilerFlags.TraceAnalyzer)
-        {
-          System.out.println("\nProduced Symbol Tables:\n");
-          symbolTable.printTable("");
-        }
-
-        System.out.println("Analyzer Complete");
-
         if (analyzer.errorOccurred())
         {
           ConsoleColor.PrintRed("Errors occurred during semantic analysis.");
@@ -196,6 +189,21 @@ public final class Main
 
           System.exit(-1);
         }
+
+        if (CompilerFlags.TraceAnalyzer)
+        {
+          System.out.println("\nProduced Symbol Tables:\n");
+          symbolTable.printTable("");
+        }
+
+        System.out.println("Analyzer Complete");
+      }
+
+      if (!CompilerFlags.NoGenerator)
+      {
+        CodeGenerator codeGenerator = new CodeGenerator();
+
+        codeGenerator.generate(tree, symbolTable, filename);
       }
       System.out.println("Compilation Completed.");
     }
