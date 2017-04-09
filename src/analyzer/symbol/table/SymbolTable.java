@@ -2,6 +2,7 @@ package analyzer.symbol.table;
 
 import analyzer.symbol.*;
 import analyzer.symbol.record.*;
+import globals.pair.IdentifierPair;
 import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
 
@@ -24,7 +25,7 @@ public class SymbolTable extends SymbolItem
   /**
    * The internal HashMap being wrapped by the SymbolTable
    */
-  private HashMap<SymbolKey, SymbolItem> table;
+  protected HashMap<SymbolKey, SymbolItem> table;
 
   /**
    * The associated portion of the AbstractSyntaxTree
@@ -540,7 +541,7 @@ public class SymbolTable extends SymbolItem
       {
         // If a symbol table, perform the necessary casting to obtain a symbol table
         // (FunctionalSymbolTable is a child of SymbolTable)
-        SymbolTable symbolTable = (SymbolTable)item;
+        SymbolTable symbolTable = (SymbolTable) item;
 
         // Check to see if the symbol table is empty
         if (symbolTable.isEmpty())
@@ -561,6 +562,41 @@ public class SymbolTable extends SymbolItem
         }
       }
     }
+  }
+
+  public ArrayList<IdentifierPair> getLocalIdentifiers()
+  {
+    ArrayList<IdentifierPair> identifiers = new ArrayList<>();
+
+    for (final SymbolKey key : table.keySet())
+    {
+      if (key.getType() != SymbolKey.KeyType.IDENTIFIER)
+      {
+        continue;
+      }
+
+      SymbolRecord item = (SymbolRecord) table.get(key);
+      if (!item.isParameter())
+      {
+        identifiers.add(new IdentifierPair(key.getName(), item.getSize()));
+      }
+    }
+    return identifiers;
+  }
+
+  public ArrayList<IdentifierPair> getFunctionDefinitions()
+  {
+    ArrayList<IdentifierPair> functions = new ArrayList<>();
+
+    for (final SymbolKey key : table.keySet())
+    {
+      if (key.getType() != SymbolKey.KeyType.SCOPE)
+      {
+        continue;
+      }
+      functions.add(new IdentifierPair(key.getName(), 0));
+    }
+    return functions;
   }
 
   /**

@@ -1,8 +1,9 @@
 package codegen.emitter;
 
-import codegen.DataTypePair;
+import globals.pair.IdentifierPair;
 
 import java.io.*;
+import java.util.ArrayList;
 
 /**
  * Concrete class for emitting MIPS assembly code
@@ -21,12 +22,12 @@ public final class MIPSCodeEmitter
     writer.close();
   }
 
-  public void emitHeader(final DataTypePair[] ids) throws IOException
+  public void emitHeader(final ArrayList<IdentifierPair> ids) throws IOException
   {
     writer.println(".data");
     if (ids != null)
     {
-      for (final DataTypePair dataPair : ids)
+      for (final IdentifierPair dataPair : ids)
       {
         writer.println(
             String.format("%s: .space %d", dataPair.name, 4 * dataPair.size));

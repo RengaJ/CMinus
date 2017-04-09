@@ -29,9 +29,7 @@ public final class CodeGenerator
 
     emitter = new MIPSCodeEmitter(filename);
 
-
-
-    emitter.emitHeader(null);
+    emitter.emitHeader(symbolTable.getLocalIdentifiers());
     emitter.emitSystemExit();
   }
 }

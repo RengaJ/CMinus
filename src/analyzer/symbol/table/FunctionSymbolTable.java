@@ -1,6 +1,10 @@
 package analyzer.symbol.table;
 
+import analyzer.symbol.SymbolItem;
 import analyzer.symbol.SymbolItemType;
+import analyzer.symbol.record.ArraySymbolRecord;
+import analyzer.symbol.record.SymbolRecord;
+import globals.pair.IdentifierPair;
 import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
 
@@ -137,6 +141,26 @@ public final class FunctionSymbolTable extends SymbolTable
     }
 
     return returnCode;
+  }
+
+  public ArrayList<IdentifierPair> getParameters()
+  {
+    ArrayList<IdentifierPair> parameters = new ArrayList<>();
+
+    for (final SymbolKey key : table.keySet())
+    {
+      if (key.getType() != SymbolKey.KeyType.IDENTIFIER)
+      {
+        continue;
+      }
+
+      SymbolRecord item = (SymbolRecord) table.get(key);
+      if (item.isParameter())
+      {
+        parameters.add(new IdentifierPair(key.getName(), item.getSize()));
+      }
+    }
+    return parameters;
   }
 
   /**

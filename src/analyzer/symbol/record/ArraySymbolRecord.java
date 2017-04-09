@@ -51,6 +51,12 @@ public final class ArraySymbolRecord extends SymbolRecord
     return true;
   }
 
+  @Override
+  public int getSize()
+  {
+    return size;
+  }
+
   /**
    * Obtain the String representation of the record
    *

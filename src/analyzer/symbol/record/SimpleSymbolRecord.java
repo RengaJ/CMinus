@@ -32,6 +32,12 @@ public final class SimpleSymbolRecord extends SymbolRecord
     return SymbolItemType.SYMBOL_RECORD_SIMPLE;
   }
 
+  @Override
+  public int getSize()
+  {
+    return 1;
+  }
+
   /**
    * Determine if the record represents an array
    *

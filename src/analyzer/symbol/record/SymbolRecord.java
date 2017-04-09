@@ -46,6 +46,11 @@ public abstract class SymbolRecord extends SymbolItem
     isParameter = parameterStatus;
   }
 
+  public boolean isParameter()
+  {
+    return isParameter;
+  }
+
   /**
    * Retrieve the memory location of the record
    *
@@ -62,6 +67,8 @@ public abstract class SymbolRecord extends SymbolItem
    * @return Flag indicating if the record represents an array
    */
   public abstract boolean isArray();
+
+  public abstract int getSize();
 
   /**
    * Obtain the String representation of the record
