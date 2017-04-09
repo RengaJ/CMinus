@@ -442,13 +442,10 @@ public final class SemanticAnalyzer
 
     // Create a new if-statement node that will be used to prime the creation
     // of a new scope in the symbol table (at the current scope)
-    AbstractSyntaxTreeNode ifNode = new IfStatementNode();
-    ifNode.setName(ifScope);
-    ifNode.setLineNumber(node.getChild(1).getLineNumber());
 
     // Attempt to create the new scope at the current scope (reporting an error
     // if one occurs)
-    reportSemanticError(symbolTable.addScope(scope, ifNode), lineNumber);
+    reportSemanticError(symbolTable.addScope(scope, node), lineNumber);
 
     // Create a new scope that will be used for additional processing
     // ([currentScope].[newScope])
@@ -468,14 +465,7 @@ public final class SemanticAnalyzer
     // If there is an else-statement associated with this if-statement, a new
     // IfStatementNode needs to be created to add to the symbol table for the
     // else-statement's body
-    AbstractSyntaxTreeNode elseNode = new IfStatementNode();
     String elseScope = String.format("else_%d", anonymousScopeCount);
-    elseNode.setName(elseScope);
-    elseNode.setLineNumber(lineNumber);
-
-    // Attempt to create a new scope at the current scope (reporting an error
-    // if one occurs)
-    reportSemanticError(symbolTable.addScope(scope, elseNode), lineNumber);
 
     // Create a new scope that will be used for additional processing
     newScope = String.format("%s.%s", scope, elseScope);
@@ -515,15 +505,9 @@ public final class SemanticAnalyzer
     // Create a scope for the while-loop to process within
     String whileScope = String.format("while_%d", ++anonymousScopeCount);
 
-    // Create a new while-statement node that will be used to prime the creation
-    // of a new scope in the symbol table (at the current scope)
-    AbstractSyntaxTreeNode whileNode = new WhileStatementNode();
-    whileNode.setName(whileScope);
-    whileNode.setLineNumber(node.getChild(1).getLineNumber());
-
     // Attempt to create the new scope at the current scope (reporting an error
     // if one occurs)
-    reportSemanticError(symbolTable.addScope(scope, whileNode), lineNumber);
+    reportSemanticError(symbolTable.addScope(scope, node), lineNumber);
 
     // Create a new scope that will be used for additional processing
     // ([currentScope].[newScope])

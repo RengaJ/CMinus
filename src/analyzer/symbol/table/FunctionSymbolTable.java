@@ -42,6 +42,23 @@ public final class FunctionSymbolTable extends SymbolTable
   }
 
   /**
+   * Full constructor for the FunctionSymbolTable
+   *
+   * @param declared  The line on which the represented function was declared
+   * @param classType The return type of the function being declared (needed to
+   *                  ensure the function is being used properly)
+   */
+  public FunctionSymbolTable(final int declared,
+                             final Class<?> classType,
+                             final AbstractSyntaxTreeNode node)
+  {
+    super(declared, classType, node);
+
+    parameterCount = 0;
+    arrayParameter = new ArrayList<>();
+  }
+
+  /**
    * Add a parameter to the set of known parameters for this function. Parameters
    * are always known to be of the integer type.
    *

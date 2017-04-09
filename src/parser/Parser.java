@@ -44,15 +44,21 @@ public final class Parser
   private int anonymousCount;
 
   /**
+   * A counter used to count named scopes (if and while)
+   */
+  private int namedScopeCount;
+
+  /**
    * Full constructor for the Parser
    */
   public Parser()
   {
-    currentTree    = null;
-    currentToken   = null;
-    tokenList      = null;
-    fatalError     = false;
-    anonymousCount = 0;
+    currentTree     = null;
+    currentToken    = null;
+    tokenList       = null;
+    fatalError      = false;
+    anonymousCount  = 0;
+    namedScopeCount = 0;
   }
 
   /**
@@ -74,6 +80,12 @@ public final class Parser
 
     // Reset the fatal error flag
     fatalError = false;
+
+    // Reset the anonymous scope count
+    anonymousCount = 0;
+
+    // Reset the "named" scope count
+    namedScopeCount =0;
 
     AbstractSyntaxTreeNode tree = createSyntaxTree();
 
@@ -1422,7 +1434,8 @@ public final class Parser
     // Fill out the node with as much information as possible:
     // > The line number of the node
     // > The token type will be RESERVED_WHILE
-    ifStatement.setName      (currentToken.getLexeme());
+    final String nodeName = String.format("if_%d", ++namedScopeCount);
+    ifStatement.setName      (nodeName);
     ifStatement.setLineNumber(currentToken.getLineNumber());
     ifStatement.setTokenType (TokenType.RESERVED_IF);
 
@@ -1492,7 +1505,8 @@ public final class Parser
     // Fill out the node with as much information as possible:
     // > The line number of the node
     // > The token type will be RESERVED_WHILE
-    whileStatement.setName      (currentToken.getLexeme());
+    final String nodeName = String.format("while_%d", ++namedScopeCount);
+    whileStatement.setName      (nodeName);
     whileStatement.setLineNumber(currentToken.getLineNumber());
     whileStatement.setTokenType (TokenType.RESERVED_WHILE);
 

@@ -27,13 +27,38 @@ public class SymbolTable extends SymbolItem
   private HashMap<SymbolKey, SymbolItem> table;
 
   /**
-   * The full constructor for the Symbol Table
+   * The associated portion of the AbstractSyntaxTree
+   */
+  private AbstractSyntaxTreeNode tree;
+
+  /**
+   * The partial constructor for the Symbol Table
    */
   public SymbolTable(final int declaredLine, final Class<?> type)
   {
     super(declaredLine, type);
 
     table = new HashMap<>();
+
+    tree = null;
+  }
+
+  /**
+   * The full constructor for the Symbol Table
+   *
+   * @param declaredLine The line on which the scope was declared
+   * @param type         The return type of the scope
+   * @param node         The associated AbstractSyntaxTree fragment
+   */
+  public SymbolTable(final int declaredLine,
+                     final Class<?> type,
+                     final AbstractSyntaxTreeNode node)
+  {
+    super(declaredLine, type);
+
+    table = new HashMap<>();
+
+    tree = node;
   }
 
   /**
@@ -220,20 +245,38 @@ public class SymbolTable extends SymbolItem
         table.put(scopeKey,
             new FunctionSymbolTable(
                 node.getLineNumber(),
-                node.getType()));
+                node.getType(),
+                node.getChild(2)));
         // Terminate processing (return OK)
         return SymbolTableCode.OK;
       }
       // If the node type is either an If-Statement or a While-Loop, create a simple
       // symbol table
-      else if ((nodeType == ASTNodeType.STATEMENT_IF) ||
-               (nodeType == ASTNodeType.STATEMENT_WHILE) ||
+      if (nodeType == ASTNodeType.STATEMENT_IF)
+      {
+        final AbstractSyntaxTreeNode bodyNode = node.getChild(1);
+        final AbstractSyntaxTreeNode elseNode = node.getChild(2);
+        table.put(scopeKey, new SymbolTable(bodyNode.getLineNumber(),
+                                            Void.class,
+                                            bodyNode));
+        if (elseNode != null)
+        {
+          final String elseName = scopeName.replace("if", "else");
+          final SymbolKey elseKey = SymbolKey.CreateScopeKey(elseName);
+          table.put(elseKey, new SymbolTable(elseNode.getLineNumber(),
+                                             Void.class,
+                                             elseNode));
+        }
+        return SymbolTableCode.OK;
+      }
+      if ((nodeType == ASTNodeType.STATEMENT_WHILE) ||
                (nodeType == ASTNodeType.META_ANONYMOUS_BLOCK))
       {
         table.put(scopeKey,
             new SymbolTable(
                 node.getLineNumber(),
-                Void.class));
+                Void.class,
+                node));
         // Terminate processing (return OK)
         return SymbolTableCode.OK;
       }
