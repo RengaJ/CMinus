@@ -51,9 +51,9 @@ public class SymbolTable extends SymbolItem
    * @param type         The return type of the scope
    * @param node         The associated AbstractSyntaxTree fragment
    */
-  public SymbolTable(final int declaredLine,
-                     final Class<?> type,
-                     final AbstractSyntaxTreeNode node)
+  SymbolTable(final int declaredLine,
+              final Class<?> type,
+              final AbstractSyntaxTreeNode node)
   {
     super(declaredLine, type);
 
@@ -247,7 +247,7 @@ public class SymbolTable extends SymbolItem
             new FunctionSymbolTable(
                 node.getLineNumber(),
                 node.getType(),
-                node.getChild(2)));
+                node.getChild(1)));
         // Terminate processing (return OK)
         return SymbolTableCode.OK;
       }
@@ -661,5 +661,10 @@ public class SymbolTable extends SymbolItem
             String.format("%s.%s", scope, scopeQueue.poll()));
       }
     }
+  }
+
+  public AbstractSyntaxTreeNode getNode()
+  {
+    return tree;
   }
 }

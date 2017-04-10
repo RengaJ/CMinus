@@ -44,6 +44,16 @@ public final class MIPSCodeEmitter
     writer.println("syscall          # Call Operating System (EXIT)   ");
   }
 
+  public void emitLabel(final String labelName)
+  {
+    writer.printf("%1$s:            # Begin the %1$s block\n", labelName);
+  }
+
+  public void emitFunctionCall(final String name)
+  {
+    writer.printf("jal %1$s        # Jump and link to %1$s\n", name);
+  }
+
   public void emitJump()
   {
   }
