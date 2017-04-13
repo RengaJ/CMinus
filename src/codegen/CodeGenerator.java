@@ -1,8 +1,12 @@
 package codegen;
 
+import analyzer.symbol.record.SymbolRecord;
 import analyzer.symbol.table.FunctionSymbolTable;
 import analyzer.symbol.table.SymbolTable;
 import codegen.emitter.MIPSCodeEmitter;
+import codegen.emitter.MIPSRegister;
+import codegen.table.LocalTable;
+import codegen.table.RegisterRecord;
 import globals.pair.IdentifierPair;
 import syntaxtree.AbstractSyntaxTreeNode;
 
@@ -16,9 +20,15 @@ public final class CodeGenerator
 {
   private MIPSCodeEmitter emitter;
 
+  private LocalTable localTable;
+
+  private FunctionSymbolTable functionTable;
+
   public CodeGenerator()
   {
-    emitter = null;
+    emitter       = null;
+    localTable    = null;
+    functionTable = null;
   }
 
   public void generate(final AbstractSyntaxTreeNode root,
@@ -42,9 +52,13 @@ public final class CodeGenerator
         continue;
       }
       emitter.emitLabel(pair.name);
-      processFunction(
-          (FunctionSymbolTable)symbolTable.getSymbolItem("", pair.name, true));
+      System.out.println("Function: main");
+
+      functionTable =
+          (FunctionSymbolTable)symbolTable.getSymbolItem("", pair.name, true);
+      processFunction();
       emitter.emitSystemExit();
+      System.out.println("");
     }
 
     for (final IdentifierPair function : functions)
@@ -57,24 +71,40 @@ public final class CodeGenerator
       }
 
       emitter.emitLabel(function.name);
-      processFunction(
-          (FunctionSymbolTable)symbolTable.getSymbolItem(
-              "",
-              function.name,
-              true));
+      System.out.println("Function: " + function.name);
+      functionTable =
+          (FunctionSymbolTable)symbolTable.getSymbolItem("", function.name, true);
+      processFunction();
+      System.out.println("");
     }
   }
 
-  private void processFunction(final FunctionSymbolTable functionTable)
+  private void processFunction()
   {
+    localTable = new LocalTable();
+
     AbstractSyntaxTreeNode functionRoot = functionTable.getNode();
 
+    ArrayList<IdentifierPair> parameters = functionTable.getParameters();
+    for (final IdentifierPair idPair : parameters)
+    {
+      SymbolRecord symbolRecord =
+          (SymbolRecord)functionTable.getSymbolItem("", idPair.name, false);
+
+      MIPSRegister register = MIPSRegister.valueOf(String.format("A%d", symbolRecord.getMemoryLocation()));
+
+      RegisterRecord record = new RegisterRecord(register, 0,idPair.size * 4);
+
+      localTable.addRecord(idPair.name, record);
+    }
     while (functionRoot != null)
     {
       processNode(functionRoot);
 
       functionRoot = functionRoot.getSibling();
     }
+
+    localTable.printTable();
   }
 
   private void processNode(final AbstractSyntaxTreeNode node)
@@ -95,10 +125,17 @@ public final class CodeGenerator
       }
       case STATEMENT_VAR_DECLARATION:
       {
+        MIPSRegister register = MIPSRegister.valueOf(String.format("S%d", 0));
+        RegisterRecord record = new RegisterRecord(register, 0, 4);
+        localTable.addRecord(node.getName(), record);
         break;
       }
       case STATEMENT_ARRAY_DECLARATION:
       {
+        int size = node.getChild(0).getValue() * 4;
+        MIPSRegister register = MIPSRegister.valueOf(String.format("S%d", 0));
+        RegisterRecord record = new RegisterRecord(register, 0, size);
+        localTable.addRecord(node.getName(), record);
         break;
       }
       case STATEMENT_ASSIGN:
