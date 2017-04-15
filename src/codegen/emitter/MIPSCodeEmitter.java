@@ -61,13 +61,36 @@ public final class MIPSCodeEmitter
     writer.printf("j %1$s            # Unconditional Jump To %1$s\n", label);
   }
 
+  public void emitStackPush(final int size)
+  {
+    writer.printf("addi $sp, $sp, -%d     # Push a stack frame\n", size);
+  }
+
+  public void emitStackSave(final String register, final int offset)
+  {
+    writer.printf("sw %s, %d($sp)\n", register, offset);
+  }
+
+  public void emitStackRetrieve(final String register, final int offset)
+  {
+    writer.printf("lw %s, %d($sp)\n", register, offset);
+  }
+
+  public void emitStackPop(final int size)
+  {
+    writer.printf("addi $sp, $sp, %d     # Pop a stack frame\n", size);
+  }
+
   public void emitReturn()
   {
   }
 
-  public void emitRType()
+  public void emitRType(final String opcode,
+                        final String r1,
+                        final String r2,
+                        final String dest)
   {
-
+    writer.printf("%s %s, %s, %s\n", opcode, dest, r1, r2);
   }
 
   public void emitIType()
@@ -80,57 +103,16 @@ public final class MIPSCodeEmitter
 
   }
 
-  public void emitBranch(final TokenType operatorType,
-                         final String register1,
-                         final String register2,
-                         final String branchLabel)
+  public void emitBranch(final String opcode,
+                         final String r1,
+                         final String r2,
+                         final String trueBranch,
+                         final String falseBranch)
   {
-    String branchType;
-    switch (operatorType)
-    {
-      case SPECIAL_EQUAL:
-      {
-        branchType = "bne";
-        break;
-      }
-      case SPECIAL_NOT_EQUAL:
-      {
-        branchType = "beq";
-        break;
-      }
-      case SPECIAL_GREATER_THAN:
-      {
-        branchType = "ble";
-        break;
-      }
-      case SPECIAL_GTE:
-      {
-        branchType = "blt";
-        break;
-      }
-      case SPECIAL_LESS_THAN:
-      {
-        branchType = "bge";
-        break;
-      }
-      case SPECIAL_LTE:
-      {
-        branchType = "bgt";
-        break;
-      }
-      default:
-      {
-        branchType = null;
-        break;
-      }
-    }
-
-    if (branchType == null)
-    {
-      return;
-    }
-
-    writer.printf("%s %s, %s, %s           # Branch\n",
-        branchType, register1, register2, branchLabel);
+    writer.printf("%s %s, %s, %s\n", opcode, r1, r2, trueBranch);
+    // Insert a no-op into the branch-delay slot
+    writer.printf("nop\n");
+    writer.printf("j %s\n", falseBranch);
+    emitLabel(trueBranch);
   }
 }

@@ -99,7 +99,7 @@ public final class CodeGenerator
     }
     while (functionRoot != null)
     {
-      processNode(functionRoot);
+      processNode(functionRoot, false);
 
       functionRoot = functionRoot.getSibling();
     }
@@ -107,20 +107,42 @@ public final class CodeGenerator
     localTable.printTable();
   }
 
-  private void processNode(final AbstractSyntaxTreeNode node)
+  private String processNode(final AbstractSyntaxTreeNode node,
+                             final boolean isLeft)
   {
     switch (node.getNodeType())
     {
       case STATEMENT_IF:
       {
+        final boolean haveElse = node.getChild(2) != null;
+        processOperator(node.getChild(0), false, node.getName(), haveElse);
+        processNode(node.getChild(1), false);
+
+        if (haveElse)
+        {
+          emitter.emitJump(node.getName() + "_end");
+          emitter.emitLabel(node.getName() + "_else");
+          processNode(node.getChild(2), false);
+        }
+        emitter.emitLabel(node.getName() + "_end");
         break;
       }
       case STATEMENT_RETURN:
       {
+        if (node.getChild(0) != null)
+        {
+          processNode(node.getChild(0), false);
+        }
+        emitter.emitReturn();
         break;
       }
       case STATEMENT_WHILE:
       {
+        emitter.emitLabel(node.getName() + "_start");
+        processOperator(node.getChild(0), false, node.getName(), false);
+        processNode(node.getChild(1), false);
+        emitter.emitJump(node.getName() + "_start");
+        emitter.emitLabel(node.getName() + "_end");
         break;
       }
       case STATEMENT_VAR_DECLARATION:
@@ -156,16 +178,138 @@ public final class CodeGenerator
       }
       case EXPRESSION_NUMBER:
       {
-        break;
+        final String register = (isLeft) ? "$t0" : "$t1";
+        // addi <register>, $0, <value>
+        return register;
       }
       case EXPRESSION_OPERATION:
       {
-        break;
+        return processOperator(node, isLeft, "", false);
       }
       default:
       {
         break;
       }
     }
+
+    return "";
+  }
+
+  private String processOperator(final AbstractSyntaxTreeNode node,
+                                 final boolean isLeft,
+                                 final String branchRoot,
+                                 final boolean hasElse)
+  {
+    // All operators are to be processed in the following order:
+    // 1. Recursively process the left child (each mathematical operator has
+    //    left-associativity that needs to be preserved) (should be $t0)
+    // 2. Push $t0 on the stack (create a new stack to preserve the value of
+    //    $t0 in-case it gets used in the next processing step)
+    // 3. Recursively process the right child (should be $t1)
+    // 4. Restore the value of $t0 from the stack (popping the stack frame)
+    // 5. Determine the correct operation that should be used
+    // 6. Print out the operation
+
+    // STEP 1:
+    final String register1 = processNode(node.getChild(0), false);
+    // STEP 2:
+    emitter.emitStackPush(4);
+    emitter.emitStackSave(register1, 0);
+    // STEP 3:
+    final String register2 = processNode(node.getChild(1), true);
+    // STEP 4:
+    emitter.emitStackRetrieve(register1, 0);
+    emitter.emitStackPop(4);
+
+    String opcode;
+    boolean isCondition = false;
+    switch (node.getTokenType())
+    {
+      case SPECIAL_GREATER_THAN:
+      {
+        opcode = "bgt";
+        isCondition = true;
+        break;
+      }
+      case SPECIAL_GTE:
+      {
+        opcode = "bge";
+        isCondition = true;
+        break;
+      }
+      case SPECIAL_LESS_THAN:
+      {
+        opcode = "blt";
+        isCondition = true;
+        break;
+      }
+      case SPECIAL_LTE:
+      {
+        opcode = "ble";
+        isCondition = true;
+        break;
+      }
+      case SPECIAL_EQUAL:
+      {
+        opcode = "beq";
+        isCondition = true;
+        break;
+      }
+      case SPECIAL_NOT_EQUAL:
+      {
+        opcode = "bne";
+        isCondition = true;
+        break;
+      }
+      case SPECIAL_PLUS:
+      {
+        opcode = "add";
+        break;
+      }
+      case SPECIAL_MINUS:
+      {
+        opcode = "sub";
+        break;
+      }
+      case SPECIAL_TIMES:
+      {
+        opcode = "mul";
+        break;
+      }
+      case SPECIAL_DIVIDE:
+      {
+        opcode = "div";
+        break;
+      }
+      default:
+      {
+        return "";
+      }
+    }
+
+    // If we're looking at a relational operator...
+    if (isCondition)
+    {
+      final String trueBranch = String.format("%s_body", branchRoot);
+      String elseBranch;
+      if (hasElse)
+      {
+        elseBranch = String.format("%s_else", branchRoot);
+      }
+      else
+      {
+        elseBranch = String.format("%s_end", branchRoot);
+      }
+
+      emitter.emitBranch(opcode, register1, register2, trueBranch, elseBranch);
+    }
+    // We're looking at a math operator
+    else
+    {
+      final String dest = (isLeft) ? "$t0" : "$t1";
+      emitter.emitRType(opcode, register1, register2, dest);
+    }
+
+    return "";
   }
 }
