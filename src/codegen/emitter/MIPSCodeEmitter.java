@@ -40,10 +40,26 @@ public final class MIPSCodeEmitter
     writer.println(".text");
   }
 
-  public void emitSystemExit()
+  public void emitSyscall(final int ID, final String register, final boolean isAddr)
   {
-    writer.println("li      $v0, 10  # Load System Code For Exit (10) ");
-    writer.println("syscall          # Call Operating System (EXIT)   ");
+    writer.printf("li       $v0, %d  # Load System call\n", ID);
+    if (register != null)
+    {
+      if (isAddr)
+      {
+        writer.printf("la    $a0, %s\n", register);
+      }
+      else
+      {
+        writer.printf("mov $a0, %s\n", register);
+      }
+    }
+    writer.println("syscall");
+  }
+
+  public void emitSeparator()
+  {
+    writer.println("");
   }
 
   public void emitLabel(final String labelName)
@@ -93,14 +109,9 @@ public final class MIPSCodeEmitter
     writer.printf("%s %s, %s, %s\n", opcode, dest, r1, r2);
   }
 
-  public void emitIType()
+  public void emitDataSave(final String to, final String from)
   {
-
-  }
-
-  public void emitJType()
-  {
-
+    writer.printf("mov  %1$s, %2$s    # Assign contents of %1$s to %2$s\n", to, from);
   }
 
   public void emitBranch(final String opcode,
@@ -114,5 +125,31 @@ public final class MIPSCodeEmitter
     writer.printf("nop\n");
     writer.printf("j %s\n", falseBranch);
     emitLabel(trueBranch);
+  }
+
+  public void emitNoop()
+  {
+    writer.println("nop");
+  }
+
+  public void emitInputFunction()
+  {
+    emitLabel("input__");
+    emitSyscall(4, "inputStr_", true);
+    emitSyscall(5, null, false);
+    emitFunctionExit();
+  }
+
+  public void emitOutputFunction()
+  {
+    emitLabel("output__");
+    emitSyscall(4, "outputStr_", true);
+    emitSyscall(1, null, false);
+    emitFunctionExit();
+  }
+
+  public void emitFunctionExit()
+  {
+    writer.println("jr $ra");
   }
 }

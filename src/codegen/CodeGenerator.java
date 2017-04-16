@@ -8,6 +8,7 @@ import codegen.emitter.MIPSRegister;
 import codegen.table.LocalTable;
 import codegen.table.RegisterRecord;
 import globals.pair.IdentifierPair;
+import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
 
 import java.io.IOException;
@@ -71,9 +72,10 @@ public final class CodeGenerator
       functionTable =
           (FunctionSymbolTable)symbolTable.getSymbolItem("", pair.name, true);
       localTable = globalTable.copy();
-      processFunction();
-      emitter.emitSystemExit();
+      processFunction(true);
+      emitter.emitSeparator();
       System.out.println("");
+      break;
     }
 
     for (final IdentifierPair function : functions)
@@ -90,12 +92,19 @@ public final class CodeGenerator
       functionTable =
           (FunctionSymbolTable)symbolTable.getSymbolItem("", function.name, true);
       localTable = globalTable.copy();
-      processFunction();
-      System.out.println("");
+      processFunction(false);
+      emitter.emitSeparator();
+      System.out.println("\n");
     }
+
+    emitter.emitInputFunction();
+    emitter.emitSeparator();
+
+    emitter.emitOutputFunction();
+    emitter.emitSeparator();
   }
 
-  private void processFunction()
+  private void processFunction(final boolean terminate)
   {
     AbstractSyntaxTreeNode functionRoot = functionTable.getNode();
 
@@ -116,6 +125,15 @@ public final class CodeGenerator
       processNode(functionRoot, false);
 
       functionRoot = functionRoot.getSibling();
+    }
+
+    if (terminate)
+    {
+      emitter.emitSyscall(10, null, false);
+    }
+    else
+    {
+      emitter.emitFunctionExit();
     }
 
     localTable.printTable();
@@ -139,6 +157,10 @@ public final class CodeGenerator
           processNode(node.getChild(2), false);
         }
         emitter.emitLabel(node.getName() + "_end");
+        if (node.getSibling() == null)
+        {
+          emitter.emitNoop();
+        }
         break;
       }
       case STATEMENT_RETURN:
@@ -177,6 +199,17 @@ public final class CodeGenerator
       }
       case STATEMENT_ASSIGN:
       {
+        String register = processNode(node.getChild(0), false);
+        String valueReg = processNode(node.getChild(1), true);
+
+        if (node.getChild(0).getNodeType() == ASTNodeType.EXPRESSION_ARRAY_IDENTIFIER)
+        {
+
+        }
+        else
+        {
+          emitter.emitDataSave(register, valueReg);
+        }
         break;
       }
       case EXPRESSION_ARRAY_IDENTIFIER:
@@ -190,7 +223,11 @@ public final class CodeGenerator
       }
       case EXPRESSION_CALL:
       {
-        break;
+        if (node.getName().equals("input"))
+        {
+          processInput();
+        }
+        return "$v0";
       }
       case EXPRESSION_NUMBER:
       {
@@ -337,5 +374,16 @@ public final class CodeGenerator
     }
 
     return "";
+  }
+
+  private void processInput()
+  {
+    emitter.emitStackPush(8);
+    emitter.emitStackSave("$a0", 0);
+    emitter.emitStackSave("$ra", 4);
+    emitter.emitFunctionCall("__input");
+    emitter.emitStackRetrieve("$ra", 4);
+    emitter.emitStackRetrieve("$a0", 0);
+    emitter.emitStackPop(8);
   }
 }
