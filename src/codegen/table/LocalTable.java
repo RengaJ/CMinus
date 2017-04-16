@@ -5,29 +5,35 @@ import codegen.emitter.MIPSRegister;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 
-public class LocalTable
+public final class LocalTable
 {
   private HashMap<String, RegisterRecord> table;
-
-  private int maxIDSize;
 
   public LocalTable()
   {
     table = new LinkedHashMap<>();
-
-    maxIDSize = 0;
   }
 
   public void addRecord(final String id, final RegisterRecord record)
   {
-    maxIDSize = Math.max(maxIDSize, id.length());
-
     table.put(id, record);
   }
 
   public RegisterRecord getRecord(final String id)
   {
     return table.get(id);
+  }
+
+  public LocalTable copy()
+  {
+    LocalTable localTable = new LocalTable();
+
+    Object clonedTable = table.clone();
+    if (clonedTable instanceof LinkedHashMap)
+    {
+      localTable.table = (LinkedHashMap)clonedTable;
+    }
+    return localTable;
   }
 
   public void printTable()

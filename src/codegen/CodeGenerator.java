@@ -43,6 +43,20 @@ public final class CodeGenerator
     emitter = new MIPSCodeEmitter(filename);
     emitter.emitHeader(symbolTable.getLocalIdentifiers());
 
+    ArrayList<IdentifierPair> globals = symbolTable.getLocalIdentifiers();
+    LocalTable globalTable = new LocalTable();
+    for (final IdentifierPair global : globals)
+    {
+      SymbolRecord symbolRecord   = (SymbolRecord)symbolTable.getSymbolItem("", global.name, false);
+      RegisterRecord globalRecord = new RegisterRecord(null, symbolRecord.getMemoryLocation(), 4 * symbolRecord.getSize());
+      globalRecord.setLabel(global.name);
+
+      globalTable.addRecord(global.name, globalRecord);
+    }
+
+    globalTable.printTable();
+    System.out.println("");
+
     ArrayList<IdentifierPair> functions = symbolTable.getFunctionDefinitions();
 
     for (final IdentifierPair pair : functions)
@@ -56,6 +70,7 @@ public final class CodeGenerator
 
       functionTable =
           (FunctionSymbolTable)symbolTable.getSymbolItem("", pair.name, true);
+      localTable = globalTable.copy();
       processFunction();
       emitter.emitSystemExit();
       System.out.println("");
@@ -74,6 +89,7 @@ public final class CodeGenerator
       System.out.println("Function: " + function.name);
       functionTable =
           (FunctionSymbolTable)symbolTable.getSymbolItem("", function.name, true);
+      localTable = globalTable.copy();
       processFunction();
       System.out.println("");
     }
@@ -81,8 +97,6 @@ public final class CodeGenerator
 
   private void processFunction()
   {
-    localTable = new LocalTable();
-
     AbstractSyntaxTreeNode functionRoot = functionTable.getNode();
 
     ArrayList<IdentifierPair> parameters = functionTable.getParameters();
@@ -149,6 +163,7 @@ public final class CodeGenerator
       {
         MIPSRegister register = MIPSRegister.valueOf(String.format("S%d", 0));
         RegisterRecord record = new RegisterRecord(register, 0, 4);
+        emitter.emitRType("addi", "$0", "$0", register.getRegister());
         localTable.addRecord(node.getName(), record);
         break;
       }
@@ -170,7 +185,8 @@ public final class CodeGenerator
       }
       case EXPRESSION_IDENTIFIER:
       {
-        break;
+        RegisterRecord record = localTable.getRecord(node.getName());
+        return record.getLabel();
       }
       case EXPRESSION_CALL:
       {
@@ -179,7 +195,9 @@ public final class CodeGenerator
       case EXPRESSION_NUMBER:
       {
         final String register = (isLeft) ? "$t0" : "$t1";
+        final String value = Integer.toString(node.getValue());
         // addi <register>, $0, <value>
+        emitter.emitRType("addi", "$0", value, register);
         return register;
       }
       case EXPRESSION_OPERATION:
@@ -212,14 +230,22 @@ public final class CodeGenerator
 
     // STEP 1:
     final String register1 = processNode(node.getChild(0), false);
+
     // STEP 2:
-    emitter.emitStackPush(4);
-    emitter.emitStackSave(register1, 0);
+    if (register1.equals("$t0"))
+    {
+      emitter.emitStackPush(4);
+      emitter.emitStackSave(register1, 0);
+    }
     // STEP 3:
     final String register2 = processNode(node.getChild(1), true);
+
     // STEP 4:
-    emitter.emitStackRetrieve(register1, 0);
-    emitter.emitStackPop(4);
+    if (register1.equals("$t0"))
+    {
+      emitter.emitStackRetrieve(register1, 0);
+      emitter.emitStackPop(4);
+    }
 
     String opcode;
     boolean isCondition = false;

@@ -2,7 +2,7 @@ package codegen.table;
 
 import codegen.emitter.MIPSRegister;
 
-public class RegisterRecord
+public final class RegisterRecord
 {
   private MIPSRegister register;
   private String       label;
