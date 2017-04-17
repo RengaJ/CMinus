@@ -227,6 +227,12 @@ public final class CodeGenerator
         {
           processInput();
         }
+        else if (node.getName().equals("output"))
+        {
+          final String register = processNode(node.getChild(0), false);
+          emitter.emitDataSave("$a0", register);
+          processOutput();
+        }
         return "$v0";
       }
       case EXPRESSION_NUMBER:
@@ -381,7 +387,18 @@ public final class CodeGenerator
     emitter.emitStackPush(8);
     emitter.emitStackSave("$a0", 0);
     emitter.emitStackSave("$ra", 4);
-    emitter.emitFunctionCall("__input");
+    emitter.emitFunctionCall("input__");
+    emitter.emitStackRetrieve("$ra", 4);
+    emitter.emitStackRetrieve("$a0", 0);
+    emitter.emitStackPop(8);
+  }
+
+  private void processOutput()
+  {
+    emitter.emitStackPush(8);
+    emitter.emitStackSave("$a0", 0);
+    emitter.emitStackSave("$ra", 4);
+    emitter.emitFunctionCall("output__");
     emitter.emitStackRetrieve("$ra", 4);
     emitter.emitStackRetrieve("$a0", 0);
     emitter.emitStackPop(8);
