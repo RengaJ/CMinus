@@ -42,16 +42,16 @@ public final class MIPSCodeEmitter
 
   public void emitSyscall(final int ID, final String register, final boolean isAddr)
   {
-    writer.printf("li       $v0, %d  # Load System call\n", ID);
+    writer.printf("li $v0, %d  # Load System call\n", ID);
     if (register != null)
     {
       if (isAddr)
       {
-        writer.printf("la    $a0, %s\n", register);
+        writer.printf("la $a0, %s\n", register);
       }
       else
       {
-        writer.printf("mov $a0, %s\n", register);
+        writer.printf("move $a0, %s\n", register);
       }
     }
     writer.println("syscall");
@@ -112,7 +112,7 @@ public final class MIPSCodeEmitter
 
   public void emitDataSave(final String to, final String from)
   {
-    writer.printf("add  %1$s, %2$s, $0    # Assign contents of %1$s to %2$s\n", to, from);
+    writer.printf("add %1$s, %2$s, $0    # Assign contents of %1$s to %2$s\n", to, from);
   }
 
   public void emitBranch(final String opcode,
