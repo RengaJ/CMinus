@@ -32,7 +32,7 @@ public final class MIPSCodeEmitter
       for (final IdentifierPair dataPair : ids)
       {
         writer.println(
-            String.format("%s: .space %d", dataPair.name, 4 * dataPair.size));
+            String.format("%s: .word %d", dataPair.name, 4 * dataPair.size));
       }
     }
     writer.println("inputStr_ : .asciiz \"Enter int: \"");
@@ -64,17 +64,17 @@ public final class MIPSCodeEmitter
 
   public void emitLabel(final String labelName)
   {
-    writer.printf("%1$s:            # Begin the %1$s block\n", labelName);
+    writer.printf("%1$s__:            # Begin the %1$s__ block\n", labelName);
   }
 
   public void emitFunctionCall(final String name)
   {
-    writer.printf("jal %1$s        # Jump and link to %1$s\n", name);
+    writer.printf("jal %1$s__        # Jump and link to %1$s\n", name);
   }
 
   public void emitJump(final String label)
   {
-    writer.printf("j %1$s            # Unconditional Jump To %1$s\n", label);
+    writer.printf("j %1$s__            # Unconditional Jump To %1$s__\n", label);
   }
 
   public void emitStackPush(final int size)
@@ -97,10 +97,6 @@ public final class MIPSCodeEmitter
     writer.printf("addi $sp, $sp, %d     # Pop a stack frame\n", size);
   }
 
-  public void emitReturn()
-  {
-  }
-
   public void emitRType(final String opcode,
                         final String r1,
                         final String r2,
@@ -109,9 +105,14 @@ public final class MIPSCodeEmitter
     writer.printf("%s %s, %s, %s\n", opcode, dest, r1, r2);
   }
 
+  public void emitLoadWord(final String to, final String from, int offset)
+  {
+    writer.printf("lw %s, %d(%s)\n", to, offset, from);
+  }
+
   public void emitDataSave(final String to, final String from)
   {
-    writer.printf("mov  %1$s, %2$s    # Assign contents of %1$s to %2$s\n", to, from);
+    writer.printf("add  %1$s, %2$s, $0    # Assign contents of %1$s to %2$s\n", to, from);
   }
 
   public void emitBranch(final String opcode,
@@ -120,10 +121,10 @@ public final class MIPSCodeEmitter
                          final String trueBranch,
                          final String falseBranch)
   {
-    writer.printf("%s %s, %s, %s\n", opcode, r1, r2, trueBranch);
+    writer.printf("%s %s, %s, %s__\n", opcode, r1, r2, trueBranch);
     // Insert a no-op into the branch-delay slot
     writer.printf("nop\n");
-    writer.printf("j %s\n", falseBranch);
+    writer.printf("j %s__\n", falseBranch);
     emitLabel(trueBranch);
   }
 
@@ -134,7 +135,7 @@ public final class MIPSCodeEmitter
 
   public void emitInputFunction()
   {
-    emitLabel("input__");
+    emitLabel("input");
     emitSyscall(4, "inputStr_", true);
     emitSyscall(5, null, false);
     emitFunctionExit();
@@ -142,8 +143,9 @@ public final class MIPSCodeEmitter
 
   public void emitOutputFunction()
   {
-    emitLabel("output__");
+    emitLabel("output");
     emitSyscall(4, "outputStr_", true);
+    emitLoadWord("$a0", "$sp", 0);
     emitSyscall(1, null, false);
     emitFunctionExit();
   }

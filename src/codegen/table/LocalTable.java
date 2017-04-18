@@ -1,7 +1,5 @@
 package codegen.table;
 
-import codegen.emitter.MIPSRegister;
-
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 
@@ -38,25 +36,22 @@ public final class LocalTable
 
   public void printTable()
   {
-    System.out.println(" ID     | Register | Label  | Offset | Size");
-    System.out.println("--------|----------|--------|--------|-----");
+    System.out.println(" ID     | Label  | Offset | Size");
+    System.out.println("--------|--------|--------|-----");
 
     if (table.isEmpty())
     {
-      System.out.println(" <NONE> | <NONE>   | <NONE> | <NONE> | <NONE>");
+      System.out.println(" <NONE> | <NONE> | <NONE> | <NONE>");
       return;
     }
     for (final String id : table.keySet())
     {
       final RegisterRecord record = table.get(id);
-      final MIPSRegister register = record.getRegister();
-      final String regStr = (register != null) ? register.getRegister() : "";
 
       System.out.println(
           String.format(
-              " %-5s  | %-8s | %-5s  | %-6d | %-4d",
+              " %-5s  | %-5s  | %-6d | %-4d",
               id,
-              regStr,
               record.getLabel(),
               record.getOffset(),
               record.getSize()));

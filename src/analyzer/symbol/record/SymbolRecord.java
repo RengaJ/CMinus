@@ -21,6 +21,12 @@ public abstract class SymbolRecord extends SymbolItem
   private boolean isParameter;
 
   /**
+   * Variable identifying the number of the local identifier
+   * (used in code generation)
+   */
+  private int id;
+
+  /**
    * Full constructor for the SymbolRecord
    *
    * @param declaredLine   The line on which the record was declared
@@ -29,11 +35,14 @@ public abstract class SymbolRecord extends SymbolItem
    */
   SymbolRecord(final int declaredLine,
                final Class<?> classType,
-               final int memoryLocation)
+               final int memoryLocation,
+               final int id)
   {
     super(declaredLine, classType);
 
     this.memoryLocation = memoryLocation;
+
+    this.id = id;
   }
 
   /**
@@ -69,6 +78,8 @@ public abstract class SymbolRecord extends SymbolItem
   public abstract boolean isArray();
 
   public abstract int getSize();
+
+  public int getId() { return id; }
 
   /**
    * Obtain the String representation of the record

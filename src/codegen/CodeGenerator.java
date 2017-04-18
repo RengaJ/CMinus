@@ -1,10 +1,10 @@
 package codegen;
 
+import analyzer.symbol.SymbolItem;
 import analyzer.symbol.record.SymbolRecord;
 import analyzer.symbol.table.FunctionSymbolTable;
 import analyzer.symbol.table.SymbolTable;
 import codegen.emitter.MIPSCodeEmitter;
-import codegen.emitter.MIPSRegister;
 import codegen.table.LocalTable;
 import codegen.table.RegisterRecord;
 import globals.pair.IdentifierPair;
@@ -23,12 +23,15 @@ public final class CodeGenerator
 
   private LocalTable localTable;
 
+  private LocalTable tempTable;
+
   private FunctionSymbolTable functionTable;
 
   public CodeGenerator()
   {
-    emitter       = null;
-    localTable    = null;
+    emitter = null;
+    tempTable = null;
+    localTable = null;
     functionTable = null;
   }
 
@@ -48,7 +51,7 @@ public final class CodeGenerator
     LocalTable globalTable = new LocalTable();
     for (final IdentifierPair global : globals)
     {
-      SymbolRecord symbolRecord   = (SymbolRecord)symbolTable.getSymbolItem("", global.name, false);
+      SymbolRecord symbolRecord = (SymbolRecord) symbolTable.getSymbolItem("", global.name, false);
       RegisterRecord globalRecord = new RegisterRecord(null, symbolRecord.getMemoryLocation(), 4 * symbolRecord.getSize());
       globalRecord.setLabel(global.name);
 
@@ -70,7 +73,7 @@ public final class CodeGenerator
       System.out.println("Function: main");
 
       functionTable =
-          (FunctionSymbolTable)symbolTable.getSymbolItem("", pair.name, true);
+          (FunctionSymbolTable) symbolTable.getSymbolItem("", pair.name, true);
       localTable = globalTable.copy();
       processFunction(true);
       emitter.emitSeparator();
@@ -90,7 +93,7 @@ public final class CodeGenerator
       emitter.emitLabel(function.name);
       System.out.println("Function: " + function.name);
       functionTable =
-          (FunctionSymbolTable)symbolTable.getSymbolItem("", function.name, true);
+          (FunctionSymbolTable) symbolTable.getSymbolItem("", function.name, true);
       localTable = globalTable.copy();
       processFunction(false);
       emitter.emitSeparator();
@@ -109,14 +112,33 @@ public final class CodeGenerator
     AbstractSyntaxTreeNode functionRoot = functionTable.getNode();
 
     ArrayList<IdentifierPair> parameters = functionTable.getParameters();
-    for (final IdentifierPair idPair : parameters)
+
+    int parameterCount = functionTable.getParameterCount();
+    if (parameterCount > 0)
     {
-      SymbolRecord symbolRecord =
-          (SymbolRecord)functionTable.getSymbolItem("", idPair.name, false);
+      parameterCount = Math.max(4, parameterCount);
+      //emitter.emitStackPush(parameterCount * 4);
+    }
+    for (int i = 0; i < parameters.size(); ++i)
+    {
+      IdentifierPair idPair = parameters.get(i);
 
-      MIPSRegister register = MIPSRegister.valueOf(String.format("A%d", symbolRecord.getMemoryLocation()));
+      RegisterRecord record;
+      if (i < 4)
+      {
+        String register = String.format("$a%d", i);
+        record = new RegisterRecord(register, 0, 4);
+        //emitter.emitStackSave(register, i* 4);
+      }
+      else
+      {
+        record = new RegisterRecord("$sp", i - 4, 4);
 
-      RegisterRecord record = new RegisterRecord(register, 0,idPair.size * 4);
+        int fullOffset = (parameterCount * 4) + record.getOffset();
+        //emitter.emitLoadWord("$t0", "$sp", fullOffset);
+
+        //emitter.emitStackSave("$t0", record.getOffset());
+      }
 
       localTable.addRecord(idPair.name, record);
     }
@@ -127,11 +149,15 @@ public final class CodeGenerator
       functionRoot = functionRoot.getSibling();
     }
 
+    if (parameterCount > 0)
+    {
+      //emitter.emitStackPop(parameterCount * 4);
+    }
+
     if (terminate)
     {
       emitter.emitSyscall(10, null, false);
-    }
-    else
+    } else
     {
       emitter.emitFunctionExit();
     }
@@ -148,16 +174,40 @@ public final class CodeGenerator
       {
         final boolean haveElse = node.getChild(2) != null;
         processOperator(node.getChild(0), false, node.getName(), haveElse);
-        processNode(node.getChild(1), false);
+
+        AbstractSyntaxTreeNode bodyNode = node.getChild(1);
+
+        boolean foundReturn = false;
+
+        while (bodyNode != null)
+        {
+          foundReturn = bodyNode.getNodeType() == ASTNodeType.STATEMENT_RETURN;
+          processNode(bodyNode, false);
+          bodyNode = bodyNode.getSibling();
+        }
 
         if (haveElse)
         {
-          emitter.emitJump(node.getName() + "_end");
+          if (!foundReturn)
+          {
+            emitter.emitJump(node.getName() + "_end");
+          }
           emitter.emitLabel(node.getName() + "_else");
-          processNode(node.getChild(2), false);
+
+          bodyNode = node.getChild(2);
+
+          while (bodyNode != null)
+          {
+            foundReturn = bodyNode.getNodeType() == ASTNodeType.STATEMENT_RETURN;
+            processNode(bodyNode, false);
+            bodyNode = bodyNode.getSibling();
+          }
         }
-        emitter.emitLabel(node.getName() + "_end");
-        if (node.getSibling() == null)
+        if (!foundReturn)
+        {
+          emitter.emitLabel(node.getName() + "_end");
+        }
+        else if (node.getSibling() == null)
         {
           emitter.emitNoop();
         }
@@ -167,33 +217,47 @@ public final class CodeGenerator
       {
         if (node.getChild(0) != null)
         {
-          processNode(node.getChild(0), false);
+          final String register = processNode(node.getChild(0), false);
+          emitter.emitDataSave("$v0", register);
         }
-        emitter.emitReturn();
+        emitter.emitFunctionExit();
         break;
       }
       case STATEMENT_WHILE:
       {
         emitter.emitLabel(node.getName() + "_start");
         processOperator(node.getChild(0), false, node.getName(), false);
-        processNode(node.getChild(1), false);
+
+        AbstractSyntaxTreeNode bodyNode = node.getChild(1);
+
+        while (bodyNode != null)
+        {
+          processNode(bodyNode, false);
+          bodyNode = bodyNode.getSibling();
+        }
         emitter.emitJump(node.getName() + "_start");
         emitter.emitLabel(node.getName() + "_end");
+        if (node.getSibling() == null)
+        {
+          emitter.emitNoop();
+        }
         break;
       }
       case STATEMENT_VAR_DECLARATION:
       {
-        MIPSRegister register = MIPSRegister.valueOf(String.format("S%d", 0));
+        SymbolRecord item =
+            (SymbolRecord)functionTable.getSymbolItem("", node.getName(), false);
+        // Produce register
+        final String register = String.format("$s%d", item.getId());
         RegisterRecord record = new RegisterRecord(register, 0, 4);
-        emitter.emitRType("addi", "$0", "$0", register.getRegister());
+        emitter.emitRType("add", "$0", "$0", register);
         localTable.addRecord(node.getName(), record);
         break;
       }
       case STATEMENT_ARRAY_DECLARATION:
       {
         int size = node.getChild(0).getValue() * 4;
-        MIPSRegister register = MIPSRegister.valueOf(String.format("S%d", 0));
-        RegisterRecord record = new RegisterRecord(register, 0, size);
+        RegisterRecord record = new RegisterRecord(null, 0, size);
         localTable.addRecord(node.getName(), record);
         break;
       }
@@ -205,8 +269,7 @@ public final class CodeGenerator
         if (node.getChild(0).getNodeType() == ASTNodeType.EXPRESSION_ARRAY_IDENTIFIER)
         {
 
-        }
-        else
+        } else
         {
           emitter.emitDataSave(register, valueReg);
         }
@@ -233,6 +296,33 @@ public final class CodeGenerator
           emitter.emitDataSave("$a0", register);
           processOutput();
         }
+        else
+        {
+          AbstractSyntaxTreeNode argNode = node.getChild(0);
+
+          String register;
+          int childCount = 0;
+          while (argNode != null)
+          {
+            register = processNode(argNode, false);
+            emitter.emitStackPush(4);
+            emitter.emitStackSave(register, 0);
+            argNode = argNode.getSibling();
+            childCount++;
+          }
+
+          for (int i = childCount - 1; i >= 0; i--)
+          {
+            emitter.emitStackRetrieve("$a" + i, (childCount - (i + 1)) * 4);
+          }
+          emitter.emitStackPop(childCount * 4);
+          emitter.emitStackPush(4);
+          emitter.emitStackSave("$ra", 0);
+
+          emitter.emitFunctionCall(node.getName());
+          emitter.emitStackRetrieve("$ra", 0);
+          emitter.emitStackPop(4);
+        }
         return "$v0";
       }
       case EXPRESSION_NUMBER:
@@ -246,6 +336,10 @@ public final class CodeGenerator
       case EXPRESSION_OPERATION:
       {
         return processOperator(node, isLeft, "", false);
+      }
+      case META_ANONYMOUS_BLOCK:
+      {
+        break;
       }
       default:
       {
@@ -272,7 +366,7 @@ public final class CodeGenerator
     // 6. Print out the operation
 
     // STEP 1:
-    final String register1 = processNode(node.getChild(0), false);
+    final String register1 = processNode(node.getChild(0), true);
 
     // STEP 2:
     if (register1.equals("$t0"))
@@ -281,7 +375,7 @@ public final class CodeGenerator
       emitter.emitStackSave(register1, 0);
     }
     // STEP 3:
-    final String register2 = processNode(node.getChild(1), true);
+    final String register2 = processNode(node.getChild(1), false);
 
     // STEP 4:
     if (register1.equals("$t0"))
@@ -355,7 +449,7 @@ public final class CodeGenerator
         return "";
       }
     }
-
+    String dest = "";
     // If we're looking at a relational operator...
     if (isCondition)
     {
@@ -364,8 +458,7 @@ public final class CodeGenerator
       if (hasElse)
       {
         elseBranch = String.format("%s_else", branchRoot);
-      }
-      else
+      } else
       {
         elseBranch = String.format("%s_end", branchRoot);
       }
@@ -375,11 +468,17 @@ public final class CodeGenerator
     // We're looking at a math operator
     else
     {
-      final String dest = (isLeft) ? "$t0" : "$t1";
+      dest = (isLeft) ? "$t0" : "$t1";
       emitter.emitRType(opcode, register1, register2, dest);
     }
 
-    return "";
+    return dest;
+  }
+
+  private void processScope(final AbstractSyntaxTreeNode node,
+                            final SymbolTable scopeTable)
+  {
+
   }
 
   private void processInput()
@@ -387,7 +486,7 @@ public final class CodeGenerator
     emitter.emitStackPush(8);
     emitter.emitStackSave("$a0", 0);
     emitter.emitStackSave("$ra", 4);
-    emitter.emitFunctionCall("input__");
+    emitter.emitFunctionCall("input");
     emitter.emitStackRetrieve("$ra", 4);
     emitter.emitStackRetrieve("$a0", 0);
     emitter.emitStackPop(8);
@@ -398,7 +497,7 @@ public final class CodeGenerator
     emitter.emitStackPush(8);
     emitter.emitStackSave("$a0", 0);
     emitter.emitStackSave("$ra", 4);
-    emitter.emitFunctionCall("output__");
+    emitter.emitFunctionCall("output");
     emitter.emitStackRetrieve("$ra", 4);
     emitter.emitStackRetrieve("$a0", 0);
     emitter.emitStackPop(8);

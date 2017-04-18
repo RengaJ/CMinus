@@ -33,6 +33,11 @@ public class SymbolTable extends SymbolItem
   private AbstractSyntaxTreeNode tree;
 
   /**
+   * The number of local identifiers in the current scope
+   */
+  private int localCount;
+
+  /**
    * The partial constructor for the Symbol Table
    */
   public SymbolTable(final int declaredLine, final Class<?> type)
@@ -42,6 +47,8 @@ public class SymbolTable extends SymbolItem
     table = new HashMap<>();
 
     tree = null;
+
+    localCount = 0;
   }
 
   /**
@@ -57,7 +64,7 @@ public class SymbolTable extends SymbolItem
   {
     super(declaredLine, type);
 
-    table = new HashMap<>();
+    table = new LinkedHashMap<>();
 
     tree = node;
   }
@@ -127,10 +134,13 @@ public class SymbolTable extends SymbolItem
       if ((nodeType == ASTNodeType.STATEMENT_VAR_DECLARATION) ||
           (nodeType == ASTNodeType.META_PARAMETER))
       {
-        SimpleSymbolRecord record = new SimpleSymbolRecord(node.getLineNumber(),
-                                                           node.getType(),
-                                                           memoryLocation);
-        record.makeParameter(nodeType == ASTNodeType.META_PARAMETER);
+        final boolean isParam = nodeType == ASTNodeType.META_PARAMETER;
+        SimpleSymbolRecord record =
+            new SimpleSymbolRecord(node.getLineNumber(),
+                                   node.getType(),
+                                   memoryLocation,
+                                   isParam ? 0 : localCount++);
+        record.makeParameter(isParam);
         table.put(idKey, record);
         // Terminate processing (return OK)
         return SymbolTableCode.OK;
@@ -142,6 +152,7 @@ public class SymbolTable extends SymbolItem
         ArraySymbolRecord record = new ArraySymbolRecord(node.getLineNumber(),
                                                          node.getType(),
                                                          memoryLocation,
+                                                         0,
                                                          0);
         record.makeParameter(true);
         table.put(idKey, record);
@@ -159,7 +170,8 @@ public class SymbolTable extends SymbolItem
                 node.getLineNumber(),
                 node.getType(),
                 memoryLocation,
-                size));
+                size,
+                localCount++));
 
         // Terminate processing (return OK)
         return SymbolTableCode.OK;

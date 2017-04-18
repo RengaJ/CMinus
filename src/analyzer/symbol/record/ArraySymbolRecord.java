@@ -22,9 +22,10 @@ public final class ArraySymbolRecord extends SymbolRecord
   public ArraySymbolRecord(final int declaredLine,
                            final Class<?> classType,
                            final int memoryLocation,
-                           final int size)
+                           final int size,
+                           final int id)
   {
-    super(declaredLine, classType, memoryLocation);
+    super(declaredLine, classType, memoryLocation, id);
 
     this.size = size;
   }

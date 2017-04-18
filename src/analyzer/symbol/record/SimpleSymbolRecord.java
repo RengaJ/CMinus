@@ -16,9 +16,10 @@ public final class SimpleSymbolRecord extends SymbolRecord
    */
   public SimpleSymbolRecord(final int declaredLine,
                             final Class<?> classType,
-                            final int memoryLocation)
+                            final int memoryLocation,
+                            final int id)
   {
-    super(declaredLine, classType, memoryLocation);
+    super(declaredLine, classType, memoryLocation, id);
   }
 
   /**
