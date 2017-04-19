@@ -97,6 +97,18 @@ public final class MIPSCodeEmitter
     writer.printf("addi $sp, $sp, %d     # Pop a stack frame\n", size);
   }
 
+  public void emitShift(final String offset, final String destination)
+  {
+    writer.printf("sll %s, %s, 2\n", destination, offset);
+  }
+
+  public void emitStoreWord(final String address,
+                            final String offset,
+                            final String from)
+  {
+    writer.printf("sw %s, %s(%s)\n", from, offset, address);
+  }
+
   public void emitRType(final String opcode,
                         final String r1,
                         final String r2,

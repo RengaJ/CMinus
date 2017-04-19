@@ -10,8 +10,6 @@ public final class MemoryStack
 {
   private MIPSCodeEmitter emitter;
 
-  private Deque<DataType> currentStack;
-
   private int argumentCount;
 
   private int localCount;
@@ -23,21 +21,16 @@ public final class MemoryStack
     emitter = mipsEmitter;
     argumentCount = 0;
     localCount = 0;
-    currentStack = new ArrayDeque<>();
     saveFP = false;
-
-    currentStack.push(DataType.RETURN_ADDRESS);
   }
 
   public void addArgument()
   {
-    currentStack.push(DataType.ARGUMENT);
     ++argumentCount;
   }
 
   public void addLocal()
   {
-    currentStack.push(DataType.LOCAL);
     ++localCount;
   }
 
@@ -51,6 +44,20 @@ public final class MemoryStack
     }
 
     emitter.emitStackPush(stackSize);
+    String register;
+    for (int i = 0; i < argumentCount; i++)
+    {
+      register = String.format("$a%d", i);
+      emitter.emitStackSave(register, i * 4);
+    }
+
+    for (int i = 0; i < localCount; i++)
+    {
+      register = String.format("$s%d", i);
+      emitter.emitStackSave(register, (argumentCount * 4) + (i * 4));
+    }
+
+    emitter.emitStackSave("$ra", stackSize - 4);
 
   }
 
@@ -63,14 +70,23 @@ public final class MemoryStack
       stackSize += 4;
     }
 
+    emitter.emitStackRetrieve("$ra", stackSize - 4);
+
+    String register;
+
+    for (int i = localCount-1; i >= 0; --i)
+    {
+      register = String.format("$s%d", i);
+      emitter.emitStackRetrieve(register, (argumentCount * 4) + (i * 4));
+    }
+
+    for (int i = argumentCount - 1; i >= 0; --i)
+    {
+      register = String.format("$a%d", i);
+      emitter.emitStackRetrieve(register, i * 4);
+    }
+
     emitter.emitStackPop(stackSize);
 
-  }
-
-  private enum DataType
-  {
-    ARGUMENT,
-    LOCAL,
-    RETURN_ADDRESS
   }
 }

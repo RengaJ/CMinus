@@ -5,6 +5,7 @@ import analyzer.symbol.record.SymbolRecord;
 import analyzer.symbol.table.FunctionSymbolTable;
 import analyzer.symbol.table.SymbolTable;
 import codegen.emitter.MIPSCodeEmitter;
+import codegen.emitter.MemoryStack;
 import codegen.table.LocalTable;
 import codegen.table.RegisterRecord;
 import globals.pair.IdentifierPair;
@@ -75,7 +76,7 @@ public final class CodeGenerator
       functionTable =
           (FunctionSymbolTable) symbolTable.getSymbolItem("", pair.name, true);
       localTable = globalTable.copy();
-      processFunction(true);
+      processFunction(pair.name, true);
       emitter.emitSeparator();
       System.out.println("");
       break;
@@ -95,7 +96,7 @@ public final class CodeGenerator
       functionTable =
           (FunctionSymbolTable) symbolTable.getSymbolItem("", function.name, true);
       localTable = globalTable.copy();
-      processFunction(false);
+      processFunction(function.name, false);
       emitter.emitSeparator();
       System.out.println("\n");
     }
@@ -107,41 +108,36 @@ public final class CodeGenerator
     emitter.emitSeparator();
   }
 
-  private void processFunction(final boolean terminate)
+  private void processFunction(final String name, final boolean terminate)
   {
     AbstractSyntaxTreeNode functionRoot = functionTable.getNode();
 
     ArrayList<IdentifierPair> parameters = functionTable.getParameters();
+    ArrayList<IdentifierPair> locals     = functionTable.getLocalIdentifiers();
 
-    int parameterCount = functionTable.getParameterCount();
-    if (parameterCount > 0)
-    {
-      parameterCount = Math.max(4, parameterCount);
-      //emitter.emitStackPush(parameterCount * 4);
-    }
+    MemoryStack stack = new MemoryStack(emitter);
+
     for (int i = 0; i < parameters.size(); ++i)
     {
+      stack.addArgument();
       IdentifierPair idPair = parameters.get(i);
 
-      RegisterRecord record;
-      if (i < 4)
-      {
-        String register = String.format("$a%d", i);
-        record = new RegisterRecord(register, 0, 4);
-        //emitter.emitStackSave(register, i* 4);
-      }
-      else
-      {
-        record = new RegisterRecord("$sp", i - 4, 4);
-
-        int fullOffset = (parameterCount * 4) + record.getOffset();
-        //emitter.emitLoadWord("$t0", "$sp", fullOffset);
-
-        //emitter.emitStackSave("$t0", record.getOffset());
-      }
-
+      String register = String.format("$a%d", i);
+      RegisterRecord record = new RegisterRecord(register, 0, 4);
       localTable.addRecord(idPair.name, record);
     }
+    for (int i = 0; i < locals.size(); ++i)
+    {
+      stack.addLocal();
+      IdentifierPair idPair = locals.get(i);
+
+      String register = String.format("$s%d", i);
+      RegisterRecord record = new RegisterRecord(register, 0, 4);
+      localTable.addRecord(idPair.name, record);
+    }
+
+    stack.emitStackPush();
+
     while (functionRoot != null)
     {
       processNode(functionRoot, false);
@@ -149,10 +145,8 @@ public final class CodeGenerator
       functionRoot = functionRoot.getSibling();
     }
 
-    if (parameterCount > 0)
-    {
-      //emitter.emitStackPop(parameterCount * 4);
-    }
+    emitter.emitLabel(name + "_cleanup");
+    stack.emitStackPop();
 
     if (terminate)
     {
@@ -263,14 +257,20 @@ public final class CodeGenerator
       }
       case STATEMENT_ASSIGN:
       {
-        String register = processNode(node.getChild(0), false);
-        String valueReg = processNode(node.getChild(1), true);
+        String valueReg = processNode(node.getChild(1), false);
 
         if (node.getChild(0).getNodeType() == ASTNodeType.EXPRESSION_ARRAY_IDENTIFIER)
         {
+          AbstractSyntaxTreeNode arrayNode = node.getChild(0);
+          RegisterRecord record = localTable.getRecord(arrayNode.getName());
+          String offsetRegister = processNode(arrayNode.getChild(0), true);
 
-        } else
+          emitter.emitShift(offsetRegister, "$t7");
+          emitter.emitStoreWord(record.getLabel(), offsetRegister, valueReg);
+        }
+        else
         {
+          String register = processNode(node.getChild(0), true);
           emitter.emitDataSave(register, valueReg);
         }
         break;
@@ -475,10 +475,19 @@ public final class CodeGenerator
     return dest;
   }
 
-  private void processScope(final AbstractSyntaxTreeNode node,
-                            final SymbolTable scopeTable)
+  private boolean processScope(final AbstractSyntaxTreeNode node,
+                               final SymbolTable scopeTable)
   {
+    if (scopeTable != null)
+    {
+      ArrayList<IdentifierPair> locals = scopeTable.getLocalIdentifiers();
+    }
 
+    boolean endsWithReturn = false;
+
+
+
+    return endsWithReturn;
   }
 
   private void processInput()
