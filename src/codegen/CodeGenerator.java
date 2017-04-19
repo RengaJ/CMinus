@@ -26,6 +26,8 @@ public final class CodeGenerator
 
   private LocalTable tempTable;
 
+  private String currentFunctionName;
+
   private FunctionSymbolTable functionTable;
 
   public CodeGenerator()
@@ -34,6 +36,7 @@ public final class CodeGenerator
     tempTable = null;
     localTable = null;
     functionTable = null;
+    currentFunctionName = "";
   }
 
   public void generate(final AbstractSyntaxTreeNode root,
@@ -76,7 +79,8 @@ public final class CodeGenerator
       functionTable =
           (FunctionSymbolTable) symbolTable.getSymbolItem("", pair.name, true);
       localTable = globalTable.copy();
-      processFunction(pair.name, true);
+      currentFunctionName = pair.name;
+      processFunction(true);
       emitter.emitSeparator();
       System.out.println("");
       break;
@@ -96,7 +100,8 @@ public final class CodeGenerator
       functionTable =
           (FunctionSymbolTable) symbolTable.getSymbolItem("", function.name, true);
       localTable = globalTable.copy();
-      processFunction(function.name, false);
+      currentFunctionName = function.name;
+      processFunction(false);
       emitter.emitSeparator();
       System.out.println("\n");
     }
@@ -108,7 +113,7 @@ public final class CodeGenerator
     emitter.emitSeparator();
   }
 
-  private void processFunction(final String name, final boolean terminate)
+  private void processFunction(final boolean terminate)
   {
     AbstractSyntaxTreeNode functionRoot = functionTable.getNode();
 
@@ -145,7 +150,7 @@ public final class CodeGenerator
       functionRoot = functionRoot.getSibling();
     }
 
-    emitter.emitLabel(name + "_cleanup");
+    emitter.emitLabel(currentFunctionName + "_cleanup");
     stack.emitStackPop();
 
     if (terminate)
@@ -214,7 +219,7 @@ public final class CodeGenerator
           final String register = processNode(node.getChild(0), false);
           emitter.emitDataSave("$v0", register);
         }
-        emitter.emitFunctionExit();
+        emitter.emitJump(currentFunctionName + "_cleanup");
         break;
       }
       case STATEMENT_WHILE:
