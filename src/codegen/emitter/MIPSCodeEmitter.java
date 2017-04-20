@@ -117,6 +117,11 @@ public final class MIPSCodeEmitter
     writer.printf("%s %s, %s, %s\n", opcode, dest, r1, r2);
   }
 
+  public void emitLoadWord(final String to, final String from, final String offset)
+  {
+    writer.printf("lw %s, %s(%s)\n", to, offset, from);
+  }
+
   public void emitLoadWord(final String to, final String from, int offset)
   {
     writer.printf("lw %s, %d(%s)\n", to, offset, from);

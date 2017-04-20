@@ -29,9 +29,26 @@ public final class LocalTable
     Object clonedTable = table.clone();
     if (clonedTable instanceof LinkedHashMap)
     {
-      localTable.table = (LinkedHashMap)clonedTable;
+      localTable.table = (LinkedHashMap) clonedTable;
     }
     return localTable;
+  }
+
+  public boolean idExists(final String id)
+  {
+    return table.containsKey(id);
+  }
+
+  public boolean registerExists(final String register)
+  {
+    for (final String id : table.keySet())
+    {
+      if (table.get(id).getLabel().equals(register))
+      {
+        return true;
+      }
+    }
+    return false;
   }
 
   public void printTable()

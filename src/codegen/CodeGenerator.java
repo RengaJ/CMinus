@@ -1,6 +1,5 @@
 package codegen;
 
-import analyzer.symbol.SymbolItem;
 import analyzer.symbol.record.SymbolRecord;
 import analyzer.symbol.table.FunctionSymbolTable;
 import analyzer.symbol.table.SymbolTable;
@@ -28,14 +27,17 @@ public final class CodeGenerator
 
   private String currentFunctionName;
 
-  private FunctionSymbolTable functionTable;
+  private SymbolTable scopeTable;
+
+  private SymbolTable currentTable;
 
   public CodeGenerator()
   {
     emitter = null;
     tempTable = null;
     localTable = null;
-    functionTable = null;
+    scopeTable = null;
+    currentTable = null;
     currentFunctionName = "";
   }
 
@@ -76,11 +78,11 @@ public final class CodeGenerator
       emitter.emitLabel(pair.name);
       System.out.println("Function: main");
 
-      functionTable =
+      FunctionSymbolTable functionTable =
           (FunctionSymbolTable) symbolTable.getSymbolItem("", pair.name, true);
       localTable = globalTable.copy();
       currentFunctionName = pair.name;
-      processFunction(true);
+      processFunction(functionTable, true);
       emitter.emitSeparator();
       System.out.println("");
       break;
@@ -97,11 +99,11 @@ public final class CodeGenerator
 
       emitter.emitLabel(function.name);
       System.out.println("Function: " + function.name);
-      functionTable =
+      FunctionSymbolTable functionTable =
           (FunctionSymbolTable) symbolTable.getSymbolItem("", function.name, true);
       localTable = globalTable.copy();
       currentFunctionName = function.name;
-      processFunction(false);
+      processFunction(functionTable, false);
       emitter.emitSeparator();
       System.out.println("\n");
     }
@@ -113,8 +115,11 @@ public final class CodeGenerator
     emitter.emitSeparator();
   }
 
-  private void processFunction(final boolean terminate)
+  private void processFunction(final FunctionSymbolTable functionTable,
+                               final boolean terminate)
   {
+    currentTable = functionTable;
+
     AbstractSyntaxTreeNode functionRoot = functionTable.getNode();
 
     ArrayList<IdentifierPair> parameters = functionTable.getParameters();
@@ -174,16 +179,13 @@ public final class CodeGenerator
         final boolean haveElse = node.getChild(2) != null;
         processOperator(node.getChild(0), false, node.getName(), haveElse);
 
-        AbstractSyntaxTreeNode bodyNode = node.getChild(1);
+        tempTable = localTable.copy();
 
-        boolean foundReturn = false;
+        SymbolTable symbolTable =
+            (SymbolTable) currentTable.getSymbolItem("", node.getName(), true);
+        boolean foundReturn = processScope(node.getChild(1), symbolTable);
 
-        while (bodyNode != null)
-        {
-          foundReturn = bodyNode.getNodeType() == ASTNodeType.STATEMENT_RETURN;
-          processNode(bodyNode, false);
-          bodyNode = bodyNode.getSibling();
-        }
+        localTable = tempTable;
 
         if (haveElse)
         {
@@ -193,14 +195,15 @@ public final class CodeGenerator
           }
           emitter.emitLabel(node.getName() + "_else");
 
-          bodyNode = node.getChild(2);
+          tempTable = localTable.copy();
 
-          while (bodyNode != null)
-          {
-            foundReturn = bodyNode.getNodeType() == ASTNodeType.STATEMENT_RETURN;
-            processNode(bodyNode, false);
-            bodyNode = bodyNode.getSibling();
-          }
+          String symbolName = node.getName().replace("if", "else");
+
+          symbolTable =
+              (SymbolTable) currentTable.getSymbolItem("", symbolName, true);
+          foundReturn = processScope(node.getChild(2), symbolTable);
+
+          localTable = tempTable;
         }
         if (!foundReturn)
         {
@@ -227,13 +230,14 @@ public final class CodeGenerator
         emitter.emitLabel(node.getName() + "_start");
         processOperator(node.getChild(0), false, node.getName(), false);
 
-        AbstractSyntaxTreeNode bodyNode = node.getChild(1);
+        tempTable = localTable.copy();
 
-        while (bodyNode != null)
-        {
-          processNode(bodyNode, false);
-          bodyNode = bodyNode.getSibling();
-        }
+        SymbolTable symbolTable =
+            (SymbolTable) currentTable.getSymbolItem("", node.getName(), true);
+        processScope(node.getChild(1), symbolTable);
+
+        localTable = tempTable;
+
         emitter.emitJump(node.getName() + "_start");
         emitter.emitLabel(node.getName() + "_end");
         if (node.getSibling() == null)
@@ -245,7 +249,7 @@ public final class CodeGenerator
       case STATEMENT_VAR_DECLARATION:
       {
         SymbolRecord item =
-            (SymbolRecord)functionTable.getSymbolItem("", node.getName(), false);
+            (SymbolRecord) currentTable.getSymbolItem("", node.getName(), false);
         // Produce register
         final String register = String.format("$s%d", item.getId());
         RegisterRecord record = new RegisterRecord(register, 0, 4);
@@ -258,6 +262,9 @@ public final class CodeGenerator
         int size = node.getChild(0).getValue() * 4;
         RegisterRecord record = new RegisterRecord(null, 0, size);
         localTable.addRecord(node.getName(), record);
+
+        //TODO
+
         break;
       }
       case STATEMENT_ASSIGN:
@@ -282,7 +289,14 @@ public final class CodeGenerator
       }
       case EXPRESSION_ARRAY_IDENTIFIER:
       {
-        break;
+        RegisterRecord record = localTable.getRecord(node.getName());
+
+        String offsetRecord = processNode(node.getChild(0), false);
+
+        emitter.emitShift(offsetRecord, "$t7");
+        emitter.emitLoadWord("$t6", record.getLabel(), "$t7");
+
+        return "$t6";
       }
       case EXPRESSION_IDENTIFIER:
       {
@@ -344,6 +358,14 @@ public final class CodeGenerator
       }
       case META_ANONYMOUS_BLOCK:
       {
+        tempTable = localTable.copy();
+
+        SymbolTable symbolTable =
+            (SymbolTable) currentTable.getSymbolItem("", node.getName(), true);
+        processScope(node.getChild(0), symbolTable);
+
+        localTable = tempTable;
+
         break;
       }
       default:
@@ -483,14 +505,65 @@ public final class CodeGenerator
   private boolean processScope(final AbstractSyntaxTreeNode node,
                                final SymbolTable scopeTable)
   {
-    if (scopeTable != null)
+    boolean needsStack = scopeTable != null;
+    ArrayList<String> registerStack = new ArrayList<>();
+    int stackSize = 0;
+    if (needsStack)
     {
+      int registerCount = 0;
       ArrayList<IdentifierPair> locals = scopeTable.getLocalIdentifiers();
+      for (final IdentifierPair localId : locals)
+      {
+        if (!localTable.idExists(localId.name))
+        {
+          String fullRegister = String.format("$s%d", registerCount);
+          while (localTable.registerExists(fullRegister))
+          {
+            ++registerCount;
+            fullRegister = String.format("$s%d", registerCount);
+          }
+          RegisterRecord record = new RegisterRecord(fullRegister, 0, 4);
+          localTable.addRecord(localId.name, record);
+          registerStack.add(fullRegister);
+        }
+
+        this.scopeTable = currentTable;
+        currentTable = scopeTable;
+      }
+
+      stackSize = registerStack.size() * 4;
+
+      emitter.emitStackPush(stackSize);
+      for (int i = 0; i < registerStack.size(); ++i)
+      {
+        emitter.emitStackSave(registerStack.get(i), i * 4);
+      }
     }
 
     boolean endsWithReturn = false;
 
+    AbstractSyntaxTreeNode statementNode = node;
+    while (statementNode != null)
+    {
+      if (statementNode.getNodeType() == ASTNodeType.STATEMENT_RETURN)
+      {
+        endsWithReturn = true;
+      }
+      processNode(statementNode, false);
+      statementNode = statementNode.getSibling();
+    }
 
+    if (needsStack)
+    {
+      currentTable = this.scopeTable;
+
+      for (int i = registerStack.size()-1; i >= 0; --i)
+      {
+        emitter.emitStackRetrieve(registerStack.get(i), i * 4);
+      }
+
+      emitter.emitStackPop(stackSize);
+    }
 
     return endsWithReturn;
   }
