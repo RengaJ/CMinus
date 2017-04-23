@@ -195,15 +195,13 @@ public final class Main
           System.out.println("\nProduced Symbol Tables:\n");
           symbolTable.printTable("");
         }
-
-        System.out.println("Analyzer Complete");
       }
 
       if (!CompilerFlags.NoGenerator)
       {
         CodeGenerator codeGenerator = new CodeGenerator();
 
-        codeGenerator.generate(tree, symbolTable, filename);
+        codeGenerator.generate(symbolTable, filename);
       }
       System.out.println("Compilation Completed.");
     }

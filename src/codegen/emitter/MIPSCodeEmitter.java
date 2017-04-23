@@ -1,8 +1,6 @@
 package codegen.emitter;
 
 import globals.pair.IdentifierPair;
-import syntaxtree.ASTNodeType;
-import tokens.TokenType;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -122,7 +120,7 @@ public final class MIPSCodeEmitter
     writer.printf("lw %s, %s(%s)\n", to, offset, from);
   }
 
-  public void emitLoadWord(final String to, final String from, int offset)
+  private void emitLoadWord(final String to, final String from, int offset)
   {
     writer.printf("lw %s, %d(%s)\n", to, offset, from);
   }

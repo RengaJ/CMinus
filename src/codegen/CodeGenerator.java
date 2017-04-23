@@ -7,6 +7,7 @@ import codegen.emitter.MIPSCodeEmitter;
 import codegen.emitter.MemoryStack;
 import codegen.table.LocalTable;
 import codegen.table.RegisterRecord;
+import globals.CompilerFlags;
 import globals.pair.IdentifierPair;
 import syntaxtree.ASTNodeType;
 import syntaxtree.AbstractSyntaxTreeNode;
@@ -19,18 +20,40 @@ import java.util.ArrayList;
  */
 public final class CodeGenerator
 {
+  /**
+   * Code emitter used to emit MIPS code
+   */
   private MIPSCodeEmitter emitter;
 
+  /**
+   * Main LocalTable used for register lookup
+   */
   private LocalTable localTable;
 
+  /**
+   * Temporary LocalTable used for scope traversal
+   */
   private LocalTable tempTable;
 
+  /**
+   * Name of the current function
+   */
   private String currentFunctionName;
 
+  /**
+   * The SymbolTable for the current scope or function
+   */
   private SymbolTable scopeTable;
 
+  /**
+   * A symbol table used for reserving the current scope table
+   * when traversing into additional scopes
+   */
   private SymbolTable currentTable;
 
+  /**
+   * The full constructor for the CodeGenerator class
+   */
   public CodeGenerator()
   {
     emitter = null;
@@ -41,30 +64,63 @@ public final class CodeGenerator
     currentFunctionName = "";
   }
 
-  public void generate(final AbstractSyntaxTreeNode root,
-                       final SymbolTable symbolTable,
+  /**
+   * The main code generation function. This function will take a root symbol
+   * table and a filename and produce the MIPS assembly code that will properly
+   * execute the compiled code. The produced code will reside in [filename].asm
+   *
+   * @param symbolTable  The root SymbolTable for code generation.
+   * @param filename     The name of the file (without an extension)
+   * @throws IOException Thrown if there is an issue with code emission
+   */
+  public void generate(final SymbolTable symbolTable,
                        final String filename) throws IOException
   {
+    // Check to see if this is not the first time this function is called.
     if (emitter != null)
     {
+      // Close the emitter if it's still open
       emitter.close();
     }
 
+    // Reset the object state
+    tempTable = null;
+    localTable = null;
+    scopeTable = null;
+    currentTable = null;
+    currentFunctionName = "";
+
+    // Create a MIPSCodeEmitter with the provided file name
     emitter = new MIPSCodeEmitter(filename);
+
+    // Emit the assembly header (allocating space for the global identifiers)
     emitter.emitHeader(symbolTable.getLocalIdentifiers());
 
-    ArrayList<IdentifierPair> globals = symbolTable.getLocalIdentifiers();
+    // Obtain the global identifiers to store in the local table
+    final ArrayList<IdentifierPair> globals = symbolTable.getLocalIdentifiers();
     LocalTable globalTable = new LocalTable();
     for (final IdentifierPair global : globals)
     {
-      SymbolRecord symbolRecord = (SymbolRecord) symbolTable.getSymbolItem("", global.name, false);
-      RegisterRecord globalRecord = new RegisterRecord(null, symbolRecord.getMemoryLocation(), 4 * symbolRecord.getSize());
-      globalRecord.setLabel(global.name);
+      // Create internal records for the LocalTable.
+      // First, obtain the SymbolRecord in the SymbolTable corresponding to the
+      // desired identifier.
+      SymbolRecord symbolRecord =
+          (SymbolRecord) symbolTable.getSymbolItem("", global.name, false);
+      // Create a RegisterRecord to add to the local table.
+      RegisterRecord globalRecord =
+          new RegisterRecord(global.name,
+                             symbolRecord.getMemoryLocation(),
+                             4 * symbolRecord.getSize());
 
+      // Add the record to the LocalTable object for the global identifier
       globalTable.addRecord(global.name, globalRecord);
     }
 
-    globalTable.printTable();
+    // Print out the global table if tracing is enabled.
+    if (CompilerFlags.TraceGenerator)
+    {
+      globalTable.printTable();
+    }
     System.out.println("");
 
     ArrayList<IdentifierPair> functions = symbolTable.getFunctionDefinitions();
@@ -568,6 +624,9 @@ public final class CodeGenerator
     return endsWithReturn;
   }
 
+  /**
+   * Write the MIPS code that will call the input__ function
+   */
   private void processInput()
   {
     emitter.emitStackPush(8);
@@ -579,6 +638,9 @@ public final class CodeGenerator
     emitter.emitStackPop(8);
   }
 
+  /**
+   * Write the MIPS code that will call the output__ function
+   */
   private void processOutput()
   {
     emitter.emitStackPush(8);
