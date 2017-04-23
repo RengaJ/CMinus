@@ -143,6 +143,11 @@ public final class FunctionSymbolTable extends SymbolTable
     return returnCode;
   }
 
+  /**
+   * Retrieve the function's parameters
+   *
+   * @return A list of the parameters of the function
+   */
   public ArrayList<IdentifierPair> getParameters()
   {
     ArrayList<IdentifierPair> parameters = new ArrayList<>();

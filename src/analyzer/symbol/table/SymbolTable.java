@@ -576,6 +576,11 @@ public class SymbolTable extends SymbolItem
     }
   }
 
+  /**
+   * Get all local identifiers from the symbol table
+   *
+   * @return The list of local identifiers
+   */
   public ArrayList<IdentifierPair> getLocalIdentifiers()
   {
     ArrayList<IdentifierPair> identifiers = new ArrayList<>();
@@ -596,6 +601,11 @@ public class SymbolTable extends SymbolItem
     return identifiers;
   }
 
+  /**
+   * Get all function definitions from the symbol table
+   *
+   * @return The list of function definitions
+   */
   public ArrayList<IdentifierPair> getFunctionDefinitions()
   {
     ArrayList<IdentifierPair> functions = new ArrayList<>();
@@ -675,6 +685,9 @@ public class SymbolTable extends SymbolItem
     }
   }
 
+  /**
+   * Get the associated node
+   */
   public AbstractSyntaxTreeNode getNode()
   {
     return tree;
