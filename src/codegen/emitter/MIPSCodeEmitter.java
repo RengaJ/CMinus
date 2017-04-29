@@ -47,7 +47,7 @@ public final class MIPSCodeEmitter
       for (final IdentifierPair dataPair : ids)
       {
         writer.println(
-            String.format("%s: .word %d", dataPair.name, 4 * dataPair.size));
+            String.format("%s: .space %d", dataPair.name, 4 * dataPair.size));
       }
     }
     // Save some strings for the I/O functions
@@ -187,10 +187,34 @@ public final class MIPSCodeEmitter
    * @param from    The originating register
    */
   public void emitStoreWord(final String address,
-                            final String offset,
+                            final int offset,
                             final String from)
   {
-    writer.printf("sw %s, %s(%s)\n", from, offset, address);
+    writer.printf("sw %s, %d(%s)\n", from, offset, address);
+  }
+
+  /**
+   * Load an address from a given location, depending on whether
+   * the provided location is a register or a label
+   *
+   * @param destination     Destination of the address being loaded
+   * @param addressLocation Location of the address being loaded
+   * @param isRegister      Is the provided location a register?
+   */
+  public void emitLoadAddress(final String destination,
+                              final String addressLocation,
+                              final boolean isRegister)
+  {
+    // Use special notation if the provided address location is a
+    // register
+    if (isRegister)
+    {
+      writer.printf("la %s, (%s)\n", destination, addressLocation);
+    }
+    else
+    {
+      writer.printf("la %s, %s\n", destination, addressLocation);
+    }
   }
 
   /**

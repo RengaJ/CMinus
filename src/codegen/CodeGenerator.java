@@ -14,6 +14,7 @@ import syntaxtree.AbstractSyntaxTreeNode;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Stack;
 
 /**
  * Main code generation class
@@ -363,7 +364,7 @@ public final class CodeGenerator
         SymbolRecord item =
             (SymbolRecord) currentTable.getSymbolItem("", node.getName(), false);
         // Produce register
-        final String register = String.format("$s%d", item.getId());
+        final String register = String.format("$s%d", item.getMemoryLocation());
         RegisterRecord record = new RegisterRecord(register, 0, 4);
         emitter.emitRType("add", "$0", "$0", register);
         localTable.addRecord(node.getName(), record);
@@ -391,9 +392,12 @@ public final class CodeGenerator
           AbstractSyntaxTreeNode arrayNode = node.getChild(0);
           RegisterRecord record = localTable.getRecord(arrayNode.getName());
           String offsetRegister = processNode(arrayNode.getChild(0), true);
+          boolean isRegister = record.getLabel().startsWith("$");
 
           emitter.emitShift(offsetRegister, "$t7");
-          emitter.emitStoreWord(record.getLabel(), offsetRegister, valueReg);
+          emitter.emitLoadAddress("$t5", record.getLabel(), isRegister);
+          emitter.emitRType("add", "$t7", "$t5", "$t5");
+          emitter.emitStoreWord("$t5", 0, valueReg);
         }
         else
         {
@@ -408,8 +412,12 @@ public final class CodeGenerator
 
         String offsetRecord = processNode(node.getChild(0), false);
 
+        boolean isRegister = record.getLabel().startsWith("$");
+
         emitter.emitShift(offsetRecord, "$t7");
-        emitter.emitLoadWord("$t6", record.getLabel(), "$t7");
+        emitter.emitLoadAddress("$t5", record.getLabel(), isRegister);
+        emitter.emitRType("add", "$t7", "$t5", "$t5");
+        emitter.emitLoadWord("$t6", "$t5", "0");
 
         return "$t6";
       }
@@ -440,9 +448,18 @@ public final class CodeGenerator
 
             String register;
             int childCount = 0;
+            Stack<String> registerStack = new Stack<>();
             while (argNode != null)
             {
               register = processNode(argNode, false);
+
+              registerStack.push(register);
+              if (!register.startsWith("$"))
+              {
+                argNode = argNode.getSibling();
+                childCount++;
+                continue;
+              }
               emitter.emitStackPush(4);
               emitter.emitStackSave(register, 0);
               argNode = argNode.getSibling();
@@ -451,7 +468,16 @@ public final class CodeGenerator
 
             for (int i = childCount - 1; i >= 0; i--)
             {
-              emitter.emitStackRetrieve("$a" + i, (childCount - (i + 1)) * 4);
+              register = registerStack.pop();
+              // Looking at a global label
+              if (!register.startsWith("$"))
+              {
+                emitter.emitLoadAddress("$a" + i, register, false);
+              }
+              else
+              {
+                emitter.emitStackRetrieve("$a" + i, (childCount - (i + 1)) * 4);
+              }
             }
             emitter.emitStackPop(childCount * 4);
             emitter.emitStackPush(4);
