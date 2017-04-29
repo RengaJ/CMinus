@@ -571,6 +571,27 @@ public class SymbolTable extends SymbolItem
         {
           // If the symbol table is now empty, delete the key from the table
           table.remove(key);
+          continue;
+        }
+
+        // Final check: If the function symbol table contains no usages and is not
+        // main, remove it from the current symbol table (we don't want to clutter
+        // up the final code with dead functions)
+        if (symbolTable.getSymbolType() == SymbolItemType.SYMBOL_TABLE_FUNCTION &&
+            symbolTable.getLines().isEmpty() &&
+            !key.getName().equals("main"))
+        {
+          table.remove(key);
+        }
+      }
+      else
+      {
+        // If there is a non-parameter identifier without any usages, remove it from
+        // the current symbol table
+        SymbolRecord record = (SymbolRecord) item;
+        if (record.getLines().isEmpty() && !record.isParameter())
+        {
+          table.remove(key);
         }
       }
     }

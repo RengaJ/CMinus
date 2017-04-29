@@ -136,11 +136,23 @@ public final class Parser
     }
 
     // Check to see if the current token is now a body terminator ( } )
-    if (!matchCurrent(TokenType.SPECIAL_RIGHT_BRACE))
+    if (!matchCurrent(TokenType.SPECIAL_RIGHT_BRACE) && tree != null)
     {
       // If not, process the next statement and set its value to
-      // the current statement's sibling
-      tree.setSibling(createSyntaxTree());
+      // the current statement's sibling. First, though, check to see if the
+      // current tree is NullNode (the processed statement was removed)
+      if (tree.getNodeType() == ASTNodeType.META_NULL)
+      {
+        // If the current tree is a NullNode, simply return the next syntax tree
+        // to be processed.
+        tree = createSyntaxTree();
+      }
+      else
+      {
+        // If the current tree is NOT a NullNode, assign the next syntax tree as the
+        // child to the current tree.
+        tree.setSibling(createSyntaxTree());
+      }
     }
     // If the current token is in fact a body terminator, consume the
     // token and terminate processing
@@ -1063,6 +1075,48 @@ public final class Parser
 
       // Change the reference to point to the operator node
       reference = opNode;
+
+      // PERFORM CONSTANT-FOLDING OPTIMIZATION ON RELATIONAL OPERATIONS
+      if ((reference.getChild(0).getNodeType() == ASTNodeType.EXPRESSION_NUMBER) &&
+          (reference.getChild(1).getNodeType() == ASTNodeType.EXPRESSION_NUMBER))
+      {
+        int line = reference.getLineNumber();
+        int left = reference.getChild(0).getValue();
+        int right = reference.getChild(0).getValue();
+
+        boolean result;
+        TokenType type = reference.getTokenType();
+        if (type == TokenType.SPECIAL_EQUAL)
+        {
+          result = left == right;
+        }
+        else if (type == TokenType.SPECIAL_NOT_EQUAL)
+        {
+          result = left != right;
+        }
+        else if (type == TokenType.SPECIAL_GREATER_THAN)
+        {
+          result = left > right;
+        }
+        else if (type == TokenType.SPECIAL_LESS_THAN)
+        {
+          result = left < right;
+        }
+        else if (type == TokenType.SPECIAL_GTE)
+        {
+          result = left >= right;
+        }
+        else // type == TokenType.SPECIAL_LTE
+        {
+          result = left <= right;
+        }
+
+        reference = new ConstantExpressionNode();
+        reference.setValue(result ? 1 : 0);
+        reference.setLineNumber(line);
+        reference.setTokenType(TokenType.VARIABLE_NUMBER);
+        reference.setType(Integer.class);
+      }
     }
 
     return reference;
@@ -1150,14 +1204,14 @@ public final class Parser
       // Check the state of the newly created additive expression
       if ((!nextParen) &&
           (additiveExp.getNodeType() == ASTNodeType.EXPRESSION_OPERATION) &&
-          ((additiveExp.getTokenType() == TokenType.SPECIAL_PLUS)         ||
-           (additiveExp.getTokenType() == TokenType.SPECIAL_MINUS)))
+          ((additiveExp.getTokenType() == TokenType.SPECIAL_PLUS) ||
+              (additiveExp.getTokenType() == TokenType.SPECIAL_MINUS)))
       {
         OperationExpressionNode newOpNode = new OperationExpressionNode();
-        newOpNode.setName      (additiveExp.getName());
+        newOpNode.setName(additiveExp.getName());
         newOpNode.setLineNumber(additiveExp.getLineNumber());
-        newOpNode.setTokenType (additiveExp.getTokenType());
-        newOpNode.setType      (additiveExp.getType());
+        newOpNode.setTokenType(additiveExp.getTokenType());
+        newOpNode.setType(additiveExp.getType());
 
         opNode.addChild(additiveExp.getChild(0));
 
@@ -1172,6 +1226,32 @@ public final class Parser
 
         // Change the reference to point to the operator node
         reference = opNode;
+      }
+
+      // PERFORM CONSTANT-FOLDING OPTIMIZATION ON +/- OPERATIONS
+      if ((reference.getChild(0).getNodeType() == ASTNodeType.EXPRESSION_NUMBER) &&
+          (reference.getChild(1).getNodeType() == ASTNodeType.EXPRESSION_NUMBER))
+      {
+        int line = reference.getLineNumber();
+        int left = reference.getChild(0).getValue();
+        int right = reference.getChild(0).getValue();
+
+        int result;
+        TokenType type = reference.getTokenType();
+        if (type == TokenType.SPECIAL_PLUS)
+        {
+          result = left + right;
+        }
+        else // type == TokenType.SPECIAL_MINUS
+        {
+          result = left - right;
+        }
+
+        reference = new ConstantExpressionNode();
+        reference.setValue(result);
+        reference.setLineNumber(line);
+        reference.setTokenType(TokenType.VARIABLE_NUMBER);
+        reference.setType(Integer.class);
       }
     }
 
@@ -1261,14 +1341,14 @@ public final class Parser
       // Check the state of the newly created additive expression
       if ((!nextParen) &&
           (termExp.getNodeType() == ASTNodeType.EXPRESSION_OPERATION) &&
-          ((termExp.getTokenType() == TokenType.SPECIAL_TIMES)        ||
-           (termExp.getTokenType() == TokenType.SPECIAL_DIVIDE)))
+          ((termExp.getTokenType() == TokenType.SPECIAL_TIMES) ||
+              (termExp.getTokenType() == TokenType.SPECIAL_DIVIDE)))
       {
         OperationExpressionNode newOpNode = new OperationExpressionNode();
-        newOpNode.setName      (termExp.getName());
+        newOpNode.setName(termExp.getName());
         newOpNode.setLineNumber(termExp.getLineNumber());
-        newOpNode.setTokenType (termExp.getTokenType());
-        newOpNode.setType      (termExp.getType());
+        newOpNode.setTokenType(termExp.getTokenType());
+        newOpNode.setType(termExp.getType());
 
         opNode.addChild(termExp.getChild(0));
 
@@ -1283,6 +1363,32 @@ public final class Parser
 
         // Change the reference to point to the operator node
         reference = opNode;
+      }
+
+      // PERFORM CONSTANT-FOLDING OPTIMIZATION ON *// OPERATIONS
+      if ((reference.getChild(0).getNodeType() == ASTNodeType.EXPRESSION_NUMBER) &&
+          (reference.getChild(1).getNodeType() == ASTNodeType.EXPRESSION_NUMBER))
+      {
+        int line = reference.getLineNumber();
+        int left = reference.getChild(0).getValue();
+        int right = reference.getChild(0).getValue();
+
+        int result;
+        TokenType type = reference.getTokenType();
+        if (type == TokenType.SPECIAL_TIMES)
+        {
+          result = left * right;
+        }
+        else // type == TokenType.SPECIAL_DIVIDE
+        {
+          result = left / right;
+        }
+
+        reference = new ConstantExpressionNode();
+        reference.setValue(result);
+        reference.setLineNumber(line);
+        reference.setTokenType(TokenType.VARIABLE_NUMBER);
+        reference.setType(Integer.class);
       }
     }
 
@@ -1426,10 +1532,10 @@ public final class Parser
    *
    * @return The processed IfStatementNode
    */
-  private IfStatementNode processIf()
+  private AbstractSyntaxTreeNode processIf()
   {
     // Create the if statement
-    IfStatementNode ifStatement = new IfStatementNode();
+    AbstractSyntaxTreeNode ifStatement = new IfStatementNode();
 
     // Fill out the node with as much information as possible:
     // > The line number of the node
@@ -1488,6 +1594,31 @@ public final class Parser
       }
     }
 
+    // PERFORM BRANCH REMOVAL OPTIMIZATION (removal of un-reachable branches)
+    if (ifStatement.getChild(0).getNodeType() == ASTNodeType.EXPRESSION_NUMBER)
+    {
+      int value = ifStatement.getChild(0).getValue();
+      if (value == 0)
+      {
+        if (ifStatement.getChild(2) == null)
+        {
+          ifStatement = new NullNode();
+        }
+        else
+        {
+          AnonymousBlockNode anonymousBlock = new AnonymousBlockNode();
+          anonymousBlock.addChild(ifStatement.getChild(2));
+          ifStatement = anonymousBlock;
+        }
+      }
+      else
+      {
+        AnonymousBlockNode anonymousBlock = new AnonymousBlockNode();
+        anonymousBlock.addChild(ifStatement.getChild(1));
+        ifStatement = anonymousBlock;
+      }
+    }
+
     // Return the newly created if-statement node
     return ifStatement;
   }
@@ -1497,10 +1628,10 @@ public final class Parser
    *
    * @return The processed WhileStatementNode
    */
-  private WhileStatementNode processWhile()
+  private AbstractSyntaxTreeNode processWhile()
   {
     // Create the while statement
-    WhileStatementNode whileStatement = new WhileStatementNode();
+    AbstractSyntaxTreeNode whileStatement = new WhileStatementNode();
 
     // Fill out the node with as much information as possible:
     // > The line number of the node
@@ -1531,6 +1662,16 @@ public final class Parser
       // the next statement as the while-statement's
       // second child
       whileStatement.addChild(processStatement());
+    }
+
+    // PERFORM BRANCH REMOVAL OPTIMIZATION (removal of un-reachable branches)
+    if (whileStatement.getChild(0).getNodeType() == ASTNodeType.EXPRESSION_NUMBER)
+    {
+      int value = whileStatement.getChild(0).getValue();
+      if (value == 0)
+      {
+        whileStatement = new NullNode();
+      }
     }
 
     // Return the newly created while-statement node

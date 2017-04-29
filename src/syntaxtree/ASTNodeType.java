@@ -16,6 +16,7 @@ public enum ASTNodeType
   META_ANONYMOUS_BLOCK,        // Anonymous block ( ... { ... } ... )
   META_ARRAY_PARAMETER,        // Function Array Parameter ( ...(int x[]) )
   META_FUNCTION,               // Function Block ( void main() { ... } )
+  META_NULL,                   // Null Node (Empty Abstract Tree Node)
   META_PARAMETER,              // Function Parameter ( ...(int x) )
   // Statement Node Types
   STATEMENT_ARRAY_DECLARATION, // Array Variable Declaration ( int x[NUM]; )
